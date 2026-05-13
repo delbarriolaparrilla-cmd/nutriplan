@@ -22,7 +22,7 @@ function hoyISO() {
 }
 
 export default function Recetas() {
-  const { perfil } = useProfile();
+  useProfile();
   const { agregar } = usePlanDiario(hoyISO());
   const { sugerencias, generando, error, generar, guardar } = useGenerarRecetas();
 
