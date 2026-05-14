@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfile, calcularMacros, categoriaIMC, recomendarComidas } from '../hooks/useProfile';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 import { Topbar } from '../components/layout/Topbar.js';
 import {
   CondicionesMedicas,
@@ -153,9 +155,24 @@ interface HorariosState {
   horario_cena: string;
 }
 
+/**
+ * Asegura que el valor de un <input type="time"> se envíe como "HH:MM:SS"
+ * (formato que aceptan las columnas TIME de PostgreSQL/Supabase).
+ * Los inputs de hora devuelven "HH:MM"; si ya tiene segundos los conserva.
+ */
+function formatTime(value: string): string {
+  if (!value) return '00:00:00';
+  const parts = value.split(':');
+  const hh = parts[0]?.padStart(2, '0') ?? '00';
+  const mm = parts[1]?.padStart(2, '0') ?? '00';
+  const ss = parts[2]?.padStart(2, '0') ?? '00';
+  return `${hh}:${mm}:${ss}`;
+}
+
 export default function MiPerfil() {
   const navigate = useNavigate();
-  const { perfil, loading, guardarPerfil } = useProfile();
+  const { user } = useAuth();
+  const { perfil, loading, recargarPerfil } = useProfile();
 
   // ── Estado local para la sección de horarios ──
   const [horarios, setHorarios] = useState<HorariosState>({
@@ -190,18 +207,35 @@ export default function MiPerfil() {
   };
 
   const handleGuardarHorarios = async () => {
+    if (!user) return;
     setGuardandoHorarios(true);
     try {
-      await guardarPerfil({
-        num_comidas_dia:          horarios.num_comidas_dia,
-        horario_desayuno:         horarios.horario_desayuno,
-        horario_colacion_manana:  horarios.horario_colacion_manana,
-        horario_comida:           horarios.horario_comida,
-        horario_colacion_tarde:   horarios.horario_colacion_tarde,
-        horario_cena:             horarios.horario_cena,
-      });
+      // Upsert directo: solo los campos de horarios + id.
+      // No pasamos por guardarPerfil() para evitar que recalcule y agregue
+      // campos extra (imc, calorias_meta…) que causarían un 400 en Supabase.
+      const { error: sbError } = await supabase
+        .from('perfil')
+        .upsert(
+          {
+            id:                       user.id,
+            num_comidas_dia:          horarios.num_comidas_dia,
+            horario_desayuno:         formatTime(horarios.horario_desayuno),
+            horario_colacion_manana:  formatTime(horarios.horario_colacion_manana),
+            horario_comida:           formatTime(horarios.horario_comida),
+            horario_colacion_tarde:   formatTime(horarios.horario_colacion_tarde),
+            horario_cena:             formatTime(horarios.horario_cena),
+          },
+          { onConflict: 'id' }
+        );
+
+      if (sbError) throw new Error(sbError.message);
+
+      // Refrescar el perfil en memoria para que MealTimeline y Hoy.tsx
+      // reflejen los nuevos horarios sin recargar la página.
+      await recargarPerfil();
       mostrarToast('✓ Horarios guardados correctamente');
-    } catch {
+    } catch (err) {
+      console.error('Error al guardar horarios:', err);
       mostrarToast('Error al guardar. Intenta de nuevo.');
     }
     setGuardandoHorarios(false);
