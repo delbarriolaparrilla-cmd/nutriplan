@@ -54,7 +54,7 @@ export default function Register() {
     if (data.user) {
       await supabase
         .from('perfil')
-        .insert({ nombre, user_id: data.user.id, perfil_completo: false });
+        .insert({ id: data.user.id, nombre, user_id: data.user.id, perfil_completo: false });
     }
 
     navigate('/onboarding');

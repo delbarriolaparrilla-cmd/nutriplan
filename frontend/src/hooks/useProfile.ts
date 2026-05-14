@@ -169,7 +169,8 @@ export function useProfile() {
 
     const updates: Record<string, unknown> = {
       ...datos,
-      user_id: user.id,
+      id: user.id,       // id = auth.uid() — requerido por la RLS policy
+      user_id: user.id,  // columna adicional para queries .eq('user_id', ...)
     };
 
     // Calcular edad
@@ -205,7 +206,7 @@ export function useProfile() {
 
     const { data, error: sbError } = await supabase
       .from('perfil')
-      .upsert(updates, { onConflict: 'user_id' })
+      .upsert(updates, { onConflict: 'id' })  // conflicto sobre PK = auth.uid()
       .select()
       .single();
 
