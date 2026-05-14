@@ -5,6 +5,7 @@ import recetasRouter from './routes/recetas.js';
 import planRouter from './routes/plan.js';
 import perfilRouter from './routes/perfil.js';
 import historialRouter from './routes/historial.js';
+import despensaRouter from './routes/despensa.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/recetas', recetasRouter);
 app.use('/api/plan', planRouter);
 app.use('/api/perfil', perfilRouter);
 app.use('/api/historial', historialRouter);
+app.use('/api/despensa', despensaRouter);
 
 // Manejo de errores
 app.use(notFound);

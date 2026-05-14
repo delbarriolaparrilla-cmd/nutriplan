@@ -6,6 +6,7 @@ import { Objetivo } from '../../types/index.js';
 const NAV_ITEMS = [
   { to: '/hoy',       label: 'Hoy',      icon: '🏠' },
   { to: '/recetas',   label: 'Recetas',  icon: '🍽️' },
+  { to: '/despensa',  label: 'Despensa', icon: '🛒' },
   { to: '/semana',    label: 'Semana',   icon: '📅' },
   { to: '/mis-grupos',label: 'Grupos',   icon: '🥗' },
   { to: '/progreso',  label: 'Progreso', icon: '📊' },

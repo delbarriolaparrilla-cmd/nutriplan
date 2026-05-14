@@ -11,6 +11,7 @@ import MiPerfil from './pages/MiPerfil.js';
 import Login from './pages/Login.js';
 import Register from './pages/Register.js';
 import Onboarding from './pages/Onboarding.js';
+import Despensa from './pages/Despensa.js';
 
 /** Layout con sidebar — sólo se renderiza cuando ProfileGuard ya aprobó */
 function AppLayout() {
@@ -27,6 +28,7 @@ function AppLayout() {
           <Route path="/mis-grupos" element={<MisGrupos />} />
           <Route path="/progreso" element={<Progreso />} />
           <Route path="/mi-perfil" element={<MiPerfil />} />
+          <Route path="/despensa" element={<Despensa />} />
           <Route path="/" element={<Navigate to="/hoy" replace />} />
           <Route path="*" element={<Navigate to="/hoy" replace />} />
         </Routes>

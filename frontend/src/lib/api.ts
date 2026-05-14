@@ -108,6 +108,32 @@ export async function crearPerfil(data: {
   });
 }
 
+// --- Despensa ---
+
+export interface ItemDespensa {
+  nombre: string;
+  cantidad: string;
+  grupo: string;
+}
+
+export interface DespensaResult {
+  lista: ItemDespensa[];
+  dias_con_plan: string[];
+  dias_sin_plan: string[];
+  total_recetas: number;
+  total_ingredientes: number;
+}
+
+export async function getDespensa(
+  dias: string[],
+  num_personas: number
+): Promise<DespensaResult> {
+  return request('/api/despensa/semana', {
+    method: 'POST',
+    body: JSON.stringify({ dias, num_personas }),
+  });
+}
+
 // --- Historial ---
 
 export async function getHistorial(dias?: number): Promise<{ historial: HistorialMacros[] }> {
