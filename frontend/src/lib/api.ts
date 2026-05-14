@@ -8,7 +8,13 @@ import {
   TipoComida,
 } from '../types/index.js';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3002';
+// En producción se usa VITE_API_URL (debe ser HTTPS, p. ej. https://tudominio.com).
+// Si no está definida en producción, se usan rutas relativas (/api/...) que el
+// servidor/proxy resuelve en el mismo origen — evita Mixed Content.
+// En desarrollo se usa http://localhost:3003 (puerto del backend local).
+const BASE_URL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL ?? '')
+  : (import.meta.env.VITE_API_URL ?? 'http://localhost:3003');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {

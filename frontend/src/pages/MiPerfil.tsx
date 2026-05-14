@@ -192,7 +192,14 @@ export default function MiPerfil() {
   const handleGuardarHorarios = async () => {
     setGuardandoHorarios(true);
     try {
-      await guardarPerfil(horarios);
+      await guardarPerfil({
+        num_comidas_dia:          horarios.num_comidas_dia,
+        horario_desayuno:         horarios.horario_desayuno,
+        horario_colacion_manana:  horarios.horario_colacion_manana,
+        horario_comida:           horarios.horario_comida,
+        horario_colacion_tarde:   horarios.horario_colacion_tarde,
+        horario_cena:             horarios.horario_cena,
+      });
       mostrarToast('✓ Horarios guardados correctamente');
     } catch {
       mostrarToast('Error al guardar. Intenta de nuevo.');
