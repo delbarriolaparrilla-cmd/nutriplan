@@ -558,7 +558,6 @@ export default function Onboarding() {
   const [step, setStep] = useState(1);
   const TOTAL_STEPS = 4;
   const [guardando, setGuardando] = useState(false);
-  const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
 
   const [form, setForm] = useState<FormState>({
@@ -647,43 +646,18 @@ export default function Onboarding() {
         perfil_completo: true,
       });
 
-      setExito(true);
-      // Redirigir tras breve pausa para mostrar mensaje de éxito
-      setTimeout(() => {
-        navigate(isEditing ? '/mi-perfil' : '/hoy');
-      }, 1800);
+      // Navegar inmediatamente — el upsert ya está committed en Supabase.
+      // replace: true evita que el botón "atrás" regrese al onboarding.
+      // fromOnboarding: true le indica a ProfileGuard que acaba de completarse.
+      navigate(isEditing ? '/mi-perfil' : '/hoy', {
+        replace: true,
+        state: { fromOnboarding: true },
+      });
     } catch (e) {
       setError('Error al guardar. Intenta de nuevo.');
       setGuardando(false);
     }
   };
-
-  // ── Pantalla de éxito ──
-  if (exito) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center px-4"
-        style={{ backgroundColor: '#F8FDFB' }}
-      >
-        <div className="text-center">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-6"
-            style={{ backgroundColor: '#E1F5EE' }}
-          >
-            🎉
-          </div>
-          <h2 className="text-2xl font-bold mb-2" style={{ color: '#085041' }}>
-            {isEditing ? '¡Perfil actualizado!' : '¡Tu plan personalizado está listo!'}
-          </h2>
-          <p className="text-gray-500 text-sm">
-            {isEditing
-              ? 'Tus datos han sido guardados correctamente.'
-              : 'Tus calorías y macros han sido calculados. ¡A comer bien!'}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // ── Formulario wizard ──
   return (

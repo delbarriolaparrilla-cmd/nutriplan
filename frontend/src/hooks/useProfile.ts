@@ -125,12 +125,17 @@ export function calcularMacros(perfil: PerfilNutricional): Macros {
 // ──────────────────────────────────────────────
 
 export function useProfile() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [perfil, setPerfil] = useState<PerfilNutricional | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const cargarPerfil = useCallback(async () => {
+    // Esperar a que auth termine de resolver antes de decidir qué hacer.
+    // Sin este check, ProfileGuard ve loading=false + perfil=null en el primer
+    // render (mientras auth aún está cargando) y redirige a /onboarding por error.
+    if (authLoading) return;
+
     if (!user) {
       setLoading(false);
       return;
@@ -152,7 +157,7 @@ export function useProfile() {
     }
 
     setLoading(false);
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     cargarPerfil();

@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useProfile } from '../../hooks/useProfile';
 
 interface ProfileGuardProps {
@@ -7,12 +7,24 @@ interface ProfileGuardProps {
 
 /**
  * Verifica que el usuario haya completado el onboarding.
- * Si perfil_completo = false (o no hay perfil), redirige a /onboarding.
- * Debe renderizarse DENTRO de ProtectedRoute (user ya garantizado).
+ *
+ * La race condition clásica era:
+ *   useProfile (nueva instancia) → useAuth empieza con user=null →
+ *   cargarPerfil retorna temprano con loading=false, perfil=null →
+ *   redirige a /onboarding antes de que auth resuelva.
+ *
+ * El fix vive en useProfile.ts (espera authLoading antes de actuar).
+ * Esta capa de seguridad adicional usa el estado de router para saber
+ * si acabamos de llegar desde onboarding y, en ese caso, no redirigir
+ * mientras loading sigue en true.
  */
 export function ProfileGuard({ children }: ProfileGuardProps) {
   const { perfil, loading } = useProfile();
+  const location = useLocation();
+  const fromOnboarding =
+    (location.state as { fromOnboarding?: boolean } | null)?.fromOnboarding === true;
 
+  // Mostrar spinner mientras carga (tanto loading de auth como de perfil)
   if (loading) {
     return (
       <div
@@ -30,9 +42,19 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
     );
   }
 
-  if (!perfil || !perfil.perfil_completo) {
-    return <Navigate to="/onboarding" replace />;
+  // Perfil completo → mostrar la app
+  if (perfil?.perfil_completo) {
+    return <>{children}</>;
   }
 
-  return <>{children}</>;
+  // Si justo venimos del onboarding y loading ya terminó pero perfil_completo
+  // sigue siendo false, algo salió mal en el guardado — redirigir a onboarding
+  // con un mensaje útil en el estado.
+  return (
+    <Navigate
+      to="/onboarding"
+      replace
+      state={fromOnboarding ? { guardadoFallido: true } : undefined}
+    />
+  );
 }

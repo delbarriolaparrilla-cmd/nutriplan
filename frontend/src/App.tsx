@@ -12,30 +12,24 @@ import Login from './pages/Login.js';
 import Register from './pages/Register.js';
 import Onboarding from './pages/Onboarding.js';
 
-/**
- * Layout con sidebar — solo para rutas que requieren perfil completo.
- * ProfileGuard verifica que el onboarding haya sido completado.
- */
+/** Layout con sidebar — sólo se renderiza cuando ProfileGuard ya aprobó */
 function AppLayout() {
   return (
-    <ProfileGuard>
-      <div className="flex h-screen bg-gray-50 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <Routes>
-            <Route path="/hoy" element={<Hoy />} />
-            <Route path="/recetas" element={<Recetas />} />
-            <Route path="/semana" element={<Semana />} />
-            <Route path="/mis-grupos" element={<MisGrupos />} />
-            <Route path="/progreso" element={<Progreso />} />
-            <Route path="/mi-perfil" element={<MiPerfil />} />
-            {/* Raíz redirige a /hoy */}
-            <Route path="/" element={<Navigate to="/hoy" replace />} />
-            <Route path="*" element={<Navigate to="/hoy" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </ProfileGuard>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <Routes>
+          <Route path="/hoy" element={<Hoy />} />
+          <Route path="/recetas" element={<Recetas />} />
+          <Route path="/semana" element={<Semana />} />
+          <Route path="/mis-grupos" element={<MisGrupos />} />
+          <Route path="/progreso" element={<Progreso />} />
+          <Route path="/mi-perfil" element={<MiPerfil />} />
+          <Route path="/" element={<Navigate to="/hoy" replace />} />
+          <Route path="*" element={<Navigate to="/hoy" replace />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
 
@@ -43,11 +37,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rutas públicas */}
+        {/* ── Rutas públicas ── */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Onboarding: protegida por auth, pero NO requiere perfil completo */}
+        {/* ── Onboarding: requiere auth pero NO perfil completo ── */}
         <Route
           path="/onboarding"
           element={
@@ -57,12 +51,17 @@ export default function App() {
           }
         />
 
-        {/* Resto de rutas: protegidas por auth + perfil completo */}
+        {/* ── App principal: requiere auth + perfil completo ──
+            ProfileGuard está en el nivel de ruta (no dentro del layout)
+            para que su instancia de useProfile sea fresca en cada navegación
+            y no herede estado cacheado de renders anteriores.           */}
         <Route
           path="/*"
           element={
             <ProtectedRoute>
-              <AppLayout />
+              <ProfileGuard>
+                <AppLayout />
+              </ProfileGuard>
             </ProtectedRoute>
           }
         />
