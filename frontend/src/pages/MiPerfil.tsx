@@ -213,20 +213,20 @@ export default function MiPerfil() {
       // Upsert directo: solo los campos de horarios + id.
       // No pasamos por guardarPerfil() para evitar que recalcule y agregue
       // campos extra (imc, calorias_meta…) que causarían un 400 en Supabase.
+      // UPDATE (no upsert) porque la fila ya existe — el perfil se crea
+      // en el Onboarding. Un upsert sin todos los campos NOT NULL (nombre, etc.)
+      // intentaría INSERT y fallaría con violación de constraint.
       const { error: sbError } = await supabase
         .from('perfil')
-        .upsert(
-          {
-            id:                       user.id,
-            num_comidas_dia:          horarios.num_comidas_dia,
-            horario_desayuno:         formatTime(horarios.horario_desayuno),
-            horario_colacion_manana:  formatTime(horarios.horario_colacion_manana),
-            horario_comida:           formatTime(horarios.horario_comida),
-            horario_colacion_tarde:   formatTime(horarios.horario_colacion_tarde),
-            horario_cena:             formatTime(horarios.horario_cena),
-          },
-          { onConflict: 'id' }
-        );
+        .update({
+          num_comidas_dia:          horarios.num_comidas_dia,
+          horario_desayuno:         formatTime(horarios.horario_desayuno),
+          horario_colacion_manana:  formatTime(horarios.horario_colacion_manana),
+          horario_comida:           formatTime(horarios.horario_comida),
+          horario_colacion_tarde:   formatTime(horarios.horario_colacion_tarde),
+          horario_cena:             formatTime(horarios.horario_cena),
+        })
+        .eq('id', user.id);
 
       if (sbError) throw new Error(sbError.message);
 
