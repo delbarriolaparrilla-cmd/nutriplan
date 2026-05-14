@@ -156,17 +156,71 @@ interface HorariosState {
 }
 
 /**
- * Asegura que el valor de un <input type="time"> se envíe como "HH:MM:SS"
- * (formato que aceptan las columnas TIME de PostgreSQL/Supabase).
- * Los inputs de hora devuelven "HH:MM"; si ya tiene segundos los conserva.
+ * Normaliza cualquier "HH:MM" o "HH:MM:SS" a "HH:MM:00"
+ * para las columnas TIME de PostgreSQL/Supabase.
  */
 function formatTime(value: string): string {
   if (!value) return '00:00:00';
   const parts = value.split(':');
-  const hh = parts[0]?.padStart(2, '0') ?? '00';
-  const mm = parts[1]?.padStart(2, '0') ?? '00';
-  const ss = parts[2]?.padStart(2, '0') ?? '00';
-  return `${hh}:${mm}:${ss}`;
+  const hh = (parts[0] ?? '00').padStart(2, '0');
+  const mm = (parts[1] ?? '00').padStart(2, '0');
+  return `${hh}:${mm}:00`;
+}
+
+/**
+ * "HH:MM:SS" → "HH:MM"  (para el valor del <select>)
+ * Redondea al slot de 30 min más cercano.
+ */
+function toSelectValue(raw: string): string {
+  if (!raw) return '08:00';
+  const [hh, mm] = raw.split(':');
+  const h = parseInt(hh ?? '8', 10);
+  const m = parseInt(mm ?? '0', 10);
+  const slot = m < 15 ? '00' : m < 45 ? '30' : '00';
+  const hour = (m >= 45 ? (h + 1) % 24 : h).toString().padStart(2, '0');
+  return `${hour}:${slot}`;
+}
+
+/** Genera opciones de 30 en 30 min de 05:00 a 22:30 */
+function generateTimeOptions(): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = [];
+  for (let h = 5; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      const hh = h.toString().padStart(2, '0');
+      const mm = m.toString().padStart(2, '0');
+      const period = h < 12 ? 'AM' : 'PM';
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      opts.push({ value: `${hh}:${mm}`, label: `${h12}:${mm} ${period}` });
+    }
+  }
+  return opts;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
+/** Select visual de hora (mejor UX táctil que input[type=time]) */
+function TimeSelect({
+  value, onChange, label, emoji,
+}: {
+  value: string; onChange: (v: string) => void; label: string; emoji: string;
+}) {
+  return (
+    <div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '6px',
+        fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>
+        <span>{emoji}</span> {label}
+      </label>
+      <select
+        className="nb-time-select"
+        value={toSelectValue(value)}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {TIME_OPTIONS.map(({ value: v, label: l }) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 export default function MiPerfil() {
@@ -496,42 +550,46 @@ export default function MiPerfil() {
               );
             })()}
 
-            {/* Selector número de comidas */}
+            {/* Selector número de comidas — cards visuales */}
             <div className="mb-5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                 Comidas al día
               </p>
-              <div className="flex gap-2">
-                {([3, 4, 5] as const).map((n) => (
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { n: 3 as const, emoji: '🍽️', desc: '3 tiempos' },
+                  { n: 4 as const, emoji: '🍽️🍎', desc: '+ merienda' },
+                  { n: 5 as const, emoji: '🍽️🍎🫐', desc: '+ 2 col.' },
+                ]).map(({ n, emoji, desc }) => (
                   <button key={n} type="button"
                     onClick={() => setHorarios(h => ({ ...h, num_comidas_dia: n }))}
-                    className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
+                    className="flex flex-col items-center gap-1 rounded-xl border-2 transition-all card-lift"
                     style={{
+                      padding: '10px 6px',
                       borderColor:     horarios.num_comidas_dia === n ? '#1D9E75' : '#E5E7EB',
                       backgroundColor: horarios.num_comidas_dia === n ? '#F0FBF7' : '#fff',
-                      color:           horarios.num_comidas_dia === n ? '#085041' : '#6B7280',
+                      minHeight: '70px',
                     }}>
-                    {n}
+                    <span style={{ fontSize: '11px' }}>{emoji}</span>
+                    <span style={{ fontSize: '20px', fontWeight: 800,
+                      color: horarios.num_comidas_dia === n ? '#085041' : '#374151' }}>{n}</span>
+                    <span style={{ fontSize: '10px', color: '#6B7280' }}>{desc}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Inputs de hora */}
+            {/* Selects de hora (mejor UX que input[type=time] en móvil) */}
             <div className="grid grid-cols-2 gap-3 mb-5">
               {(HORARIOS_POR_COMIDAS[horarios.num_comidas_dia as 3 | 4 | 5] ?? HORARIOS_POR_COMIDAS[5])
                 .map(({ campo, label, emoji }) => (
-                  <div key={campo}>
-                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
-                      <span>{emoji}</span> {label}
-                    </label>
-                    <input
-                      type="time"
-                      value={horarios[campo] as string}
-                      onChange={e => setHorarios(h => ({ ...h, [campo]: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400"
-                    />
-                  </div>
+                  <TimeSelect
+                    key={campo}
+                    label={label}
+                    emoji={emoji}
+                    value={horarios[campo] as string}
+                    onChange={(v) => setHorarios(h => ({ ...h, [campo]: v }))}
+                  />
                 ))}
             </div>
 

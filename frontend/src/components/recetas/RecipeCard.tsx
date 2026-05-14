@@ -17,6 +17,7 @@ export function RecipeCard({ receta, seleccionada, onSeleccionar }: RecipeCardPr
           : 'border-gray-100 bg-white hover:border-green-200'
       }`}
     >
+      {/* Nombre + dificultad */}
       <div className="flex items-start justify-between mb-2">
         <h3 className="font-semibold text-gray-800 text-sm leading-tight pr-2">{receta.nombre}</h3>
         <span
@@ -34,6 +35,7 @@ export function RecipeCard({ receta, seleccionada, onSeleccionar }: RecipeCardPr
 
       <p className="text-xs text-gray-500 mb-3 line-clamp-2">{receta.descripcion}</p>
 
+      {/* Macros */}
       <div className="flex gap-3 text-xs font-medium mb-3">
         <span style={{ color: '#1D9E75' }}>{receta.calorias} kcal</span>
         <span className="text-blue-600">P: {receta.proteina_g}g</span>
@@ -41,14 +43,44 @@ export function RecipeCard({ receta, seleccionada, onSeleccionar }: RecipeCardPr
         <span className="text-red-500">G: {receta.grasa_g}g</span>
       </div>
 
-      <div className="flex items-center justify-between">
+      {/* Tags + tiempo + costo */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex flex-wrap gap-1">
           {receta.tags.slice(0, 3).map((tag) => (
             <Badge key={tag} label={tag} color="#1D9E75" />
           ))}
         </div>
-        <span className="text-xs text-gray-400">{receta.tiempo_minutos} min</span>
+        <div className="flex items-center gap-2 shrink-0">
+          {receta.costo_estimado_mxn != null && (
+            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              💰 ${receta.costo_estimado_mxn} MXN
+            </span>
+          )}
+          <span className="text-xs text-gray-400">{receta.tiempo_minutos} min</span>
+        </div>
       </div>
+
+      {/* Badge SMAE */}
+      {receta.grupo_smae_principal && (
+        <div className="mb-2">
+          <span
+            className="text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#E1F5EE', color: '#085041' }}
+          >
+            🌿 {receta.grupo_smae_principal}
+          </span>
+        </div>
+      )}
+
+      {/* Nota nutricional */}
+      {receta.nota_nutricional && (
+        <div
+          className="mt-2 px-3 py-2 rounded-xl text-xs text-left leading-relaxed"
+          style={{ backgroundColor: '#F0FBF7', color: '#1D6B50' }}
+        >
+          💡 {receta.nota_nutricional}
+        </div>
+      )}
     </button>
   );
 }

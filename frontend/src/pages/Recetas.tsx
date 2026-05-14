@@ -22,7 +22,7 @@ function hoyISO() {
 }
 
 export default function Recetas() {
-  useProfile();
+  const { perfil } = useProfile();
   const { agregar } = usePlanDiario(hoyISO());
   const { sugerencias, generando, error, generar, guardar } = useGenerarRecetas();
 
@@ -48,8 +48,21 @@ export default function Recetas() {
       ingredientesDisponibles: ingredientes,
       tiempoMaxMinutos: tiempoMax,
       gruposNutricionales: [],
-      caloriasObjetivo: calorias[tipoComida],
+      caloriasObjetivo: perfil?.calorias_meta
+        ? Math.round(perfil.calorias_meta * (
+            tipoComida === 'desayuno' ? 0.25 :
+            tipoComida === 'colacion' ? 0.10 :
+            tipoComida === 'comida'   ? 0.35 : 0.25
+          ))
+        : calorias[tipoComida],
       recetasRecientes: [],
+      objetivo: perfil?.objetivo ?? undefined,
+      condicionesMedicas: perfil?.condiciones_medicas
+        ? (perfil.condiciones_medicas as Record<string, boolean>)
+        : undefined,
+      preferenciasAlimentarias: perfil?.preferencias_alimentarias
+        ? (perfil.preferencias_alimentarias as Record<string, boolean>)
+        : undefined,
     });
   };
 

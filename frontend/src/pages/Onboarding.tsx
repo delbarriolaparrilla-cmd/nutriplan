@@ -172,7 +172,7 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       <h3 className="text-lg font-semibold text-gray-800 mb-1">Cuéntanos sobre ti</h3>
       <p className="text-sm text-gray-500 mb-6">Esta información personaliza tu plan nutricional.</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 onboarding-grid-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre *</label>
           <input type="text" value={form.nombre} onChange={set('nombre')} required placeholder="Tu nombre"
@@ -238,7 +238,7 @@ function Step2({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       <h3 className="text-lg font-semibold text-gray-800 mb-1">Tu información física</h3>
       <p className="text-sm text-gray-500 mb-6">Estos datos calculan tus necesidades calóricas exactas.</p>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 onboarding-grid-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Peso (kg) *</label>
           <input type="number" value={form.peso_kg} onChange={set('peso_kg')} required
@@ -611,9 +611,10 @@ export default function Onboarding() {
       <div className="w-full max-w-xl">
         {/* Logo */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold" style={{ color: '#1D9E75' }}>NutriPlan</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {isEditing ? 'Editar perfil' : 'Configura tu plan personalizado'}
+          <div style={{ fontSize: '32px', lineHeight: 1, marginBottom: '6px' }}>🍽️</div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1D9E75' }}>NutriBarrio</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--color-primary-dark)' }}>
+            {isEditing ? 'Editar perfil' : 'Come bien, gasta poco'}
           </p>
         </div>
 
@@ -632,24 +633,25 @@ export default function Onboarding() {
             </div>
           )}
 
-          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
+          <div className="onboarding-nav flex justify-between items-center mt-8 pt-6 border-t border-gray-100">
             <button type="button" onClick={handlePrev} disabled={step === 1}
-              className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              className="px-5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ minHeight: '44px' }}>
               ← Anterior
             </button>
 
-            <span className="text-xs text-gray-400">{step} de {TOTAL_STEPS}</span>
+            <span className="text-xs text-gray-400 shrink-0">{step} de {TOTAL_STEPS}</span>
 
             {step < TOTAL_STEPS ? (
               <button type="button" onClick={handleNext}
-                className="px-6 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: '#1D9E75' }}>
+                className="px-6 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: '#1D9E75', minHeight: '44px' }}>
                 Siguiente →
               </button>
             ) : (
               <button type="button" onClick={handleFinish} disabled={guardando}
-                className="px-6 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-                style={{ backgroundColor: '#1D9E75' }}>
+                className="px-6 rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                style={{ backgroundColor: '#1D9E75', minHeight: '44px' }}>
                 {guardando ? 'Guardando…' : isEditing ? 'Guardar cambios' : 'Finalizar ✓'}
               </button>
             )}

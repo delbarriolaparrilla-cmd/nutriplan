@@ -168,6 +168,10 @@ export interface GenerarRecetaParams {
   gruposNutricionales: GrupoNutricional[];
   caloriasObjetivo: number;
   recetasRecientes: string[];
+  // Datos del perfil para personalizar las recetas según SMAE
+  objetivo?: string;
+  condicionesMedicas?: Record<string, boolean>;
+  preferenciasAlimentarias?: Record<string, boolean>;
 }
 
 export interface RecetaGenerada {
@@ -182,6 +186,9 @@ export interface RecetaGenerada {
   ingredientes: Ingrediente[];
   pasos: string[];
   tags: string[];
+  costo_estimado_mxn?: number;
+  nota_nutricional?: string;
+  grupo_smae_principal?: string;
 }
 
 export interface Macros {

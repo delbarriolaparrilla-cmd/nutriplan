@@ -17,7 +17,9 @@ function AppLayout() {
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      {/* main-with-bottom-nav adds pb-[68px] on mobile via CSS so content
+          isn't hidden behind the fixed bottom nav */}
+      <main className="flex-1 flex flex-col overflow-hidden main-with-bottom-nav">
         <Routes>
           <Route path="/hoy" element={<Hoy />} />
           <Route path="/recetas" element={<Recetas />} />
