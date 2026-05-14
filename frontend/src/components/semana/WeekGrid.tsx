@@ -1,7 +1,91 @@
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { PlanDiario, TipoComida } from '../../types/index.js';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const COMIDAS: TipoComida[] = ['desayuno', 'colacion', 'comida', 'cena'];
+const COMIDA_EMOJI: Record<TipoComida, string> = {
+  desayuno: '🌅',
+  colacion: '🍎',
+  comida: '🍽️',
+  cena: '🌙',
+};
+
+// ─── DraggableCell ─────────────────────────────────────────────────────────
+
+interface DraggableCellProps {
+  entrada: PlanDiario;
+}
+
+function DraggableCell({ entrada }: DraggableCellProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: entrada.id,
+    data: { entrada },
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    touchAction: 'none', // needed for mobile drag
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      title={entrada.receta?.nombre ?? ''}
+      className={`text-xs px-2 py-1.5 rounded-lg truncate max-w-[80px] mx-auto select-none ${
+        entrada.consumido
+          ? 'bg-green-100 text-green-700'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      }`}
+    >
+      {entrada.receta
+        ? entrada.receta.nombre.split(' ').slice(0, 2).join(' ')
+        : '—'}
+    </div>
+  );
+}
+
+// ─── DroppableCell ─────────────────────────────────────────────────────────
+
+interface DroppableCellProps {
+  fecha: string;
+  tipo: TipoComida;
+  entrada: PlanDiario | undefined;
+  isToday: boolean;
+}
+
+function DroppableCell({ fecha, tipo, entrada, isToday }: DroppableCellProps) {
+  const id = `${fecha}__${tipo}`;
+  const { setNodeRef, isOver } = useDroppable({ id, data: { fecha, tipo } });
+
+  return (
+    <td
+      ref={setNodeRef}
+      className={`p-1.5 text-center align-middle transition-colors ${
+        isToday ? 'bg-green-50' : ''
+      } ${isOver ? 'bg-emerald-100 ring-2 ring-inset ring-emerald-300 rounded-lg' : ''}`}
+      style={{ minWidth: 84 }}
+    >
+      {entrada ? (
+        <DraggableCell entrada={entrada} />
+      ) : (
+        <span
+          className={`text-gray-200 text-base leading-none ${isOver ? 'opacity-0' : ''}`}
+          aria-hidden="true"
+        >
+          ·
+        </span>
+      )}
+    </td>
+  );
+}
+
+// ─── WeekGrid ──────────────────────────────────────────────────────────────
 
 interface WeekGridProps {
   semana: { fecha: string; plan: PlanDiario[] }[];
@@ -11,11 +95,12 @@ export function WeekGrid({ semana }: WeekGridProps) {
   const hoy = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
+    <div className="overflow-x-auto -mx-1">
+      <table className="w-full border-collapse" style={{ minWidth: 520 }}>
         <thead>
           <tr>
-            <th className="w-24 p-2 text-xs text-gray-400 font-medium text-left">Comida</th>
+            {/* comida label column */}
+            <th className="w-20 p-2 text-xs text-gray-400 font-medium text-left" />
             {semana.map(({ fecha }, i) => (
               <th
                 key={fecha}
@@ -35,31 +120,20 @@ export function WeekGrid({ semana }: WeekGridProps) {
         <tbody>
           {COMIDAS.map((tipo) => (
             <tr key={tipo} className="border-t border-gray-100">
-              <td className="p-2 text-xs font-medium text-gray-500 capitalize">{tipo}</td>
+              <td className="p-2 text-xs font-medium text-gray-400 whitespace-nowrap">
+                <span className="mr-1">{COMIDA_EMOJI[tipo]}</span>
+                <span className="capitalize">{tipo}</span>
+              </td>
               {semana.map(({ fecha, plan }) => {
                 const entrada = plan.find((p) => p.tipo_comida === tipo);
                 return (
-                  <td
+                  <DroppableCell
                     key={fecha}
-                    className={`p-2 text-center align-middle ${
-                      fecha === hoy ? 'bg-green-50' : ''
-                    }`}
-                  >
-                    {entrada?.receta ? (
-                      <div
-                        title={entrada.receta.nombre}
-                        className={`text-xs px-2 py-1 rounded-lg truncate max-w-[80px] mx-auto ${
-                          entrada.consumido
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {entrada.receta.nombre.split(' ').slice(0, 2).join(' ')}
-                      </div>
-                    ) : (
-                      <span className="text-gray-200 text-lg">-</span>
-                    )}
-                  </td>
+                    fecha={fecha}
+                    tipo={tipo}
+                    entrada={entrada}
+                    isToday={fecha === hoy}
+                  />
                 );
               })}
             </tr>

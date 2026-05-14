@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../services/supabaseService.js';
+import { generarVariaciones } from '../services/claudeService.js';
 
 const router = Router();
 
@@ -87,6 +88,196 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
     if (error) throw Object.assign(new Error(error.message), { statusCode: 400 });
 
     res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/plan/agregar-multiple
+// Body: { receta_id?, tipo_comida, fechas[], modo, reemplazar,
+//         perfil_info?, receta_base? }
+// ─────────────────────────────────────────────────────────────
+router.post('/agregar-multiple', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const {
+      receta_id,
+      tipo_comida,
+      fechas,
+      modo,
+      reemplazar = false,
+      perfil_info,
+      receta_base,
+    } = req.body as {
+      receta_id?: string;
+      tipo_comida: string;
+      fechas: string[];
+      modo: 'repetir' | 'variaciones';
+      reemplazar: boolean;
+      perfil_info?: { objetivo?: string; condiciones?: Record<string, boolean>; preferencias?: Record<string, boolean> };
+      receta_base?: { nombre: string; calorias: number };
+    };
+
+    if (!tipo_comida || !Array.isArray(fechas) || fechas.length === 0) {
+      res.status(400).json({ error: 'tipo_comida y fechas son requeridos.' });
+      return;
+    }
+
+    let insertados = 0;
+    let omitidos   = 0;
+
+    if (modo === 'variaciones') {
+      // 1. Generar N recetas distintas con Claude
+      const variaciones = await generarVariaciones({
+        tipoComida: tipo_comida as 'desayuno' | 'colacion' | 'comida' | 'cena',
+        numDias:     fechas.length,
+        caloriasObjetivo: receta_base?.calorias ?? 500,
+        objetivo:    perfil_info?.objetivo,
+        condicionesMedicas:    perfil_info?.condiciones,
+        preferenciasAlimentarias: perfil_info?.preferencias,
+        recetaBaseNombre: receta_base?.nombre,
+      });
+
+      // 2. Guardar cada variación en recetas y agregar al plan
+      for (let i = 0; i < fechas.length; i++) {
+        const fecha    = fechas[i];
+        const variacion = variaciones[i % variaciones.length];
+
+        // Verificar conflicto
+        if (!reemplazar) {
+          const { data: existing } = await supabase
+            .from('plan_diario')
+            .select('id')
+            .eq('fecha', fecha)
+            .eq('tipo_comida', tipo_comida)
+            .maybeSingle();
+          if (existing) { omitidos++; continue; }
+        }
+
+        // Guardar la receta generada
+        const { data: recetaGuardada, error: rErr } = await supabase
+          .from('recetas')
+          .insert({ ...variacion, tipo_comida, generada_por_ia: true, veces_usada: 0 })
+          .select('id')
+          .single();
+
+        if (rErr) { omitidos++; continue; }
+
+        // Agregar al plan
+        await supabase
+          .from('plan_diario')
+          .upsert([{ fecha, tipo_comida, receta_id: recetaGuardada.id }], {
+            onConflict: 'fecha,tipo_comida',
+          });
+        insertados++;
+      }
+    } else {
+      // modo === 'repetir' — misma receta en todas las fechas
+      if (!receta_id) {
+        res.status(400).json({ error: 'receta_id es requerido en modo repetir.' });
+        return;
+      }
+
+      for (const fecha of fechas) {
+        // Verificar conflicto
+        if (!reemplazar) {
+          const { data: existing } = await supabase
+            .from('plan_diario')
+            .select('id')
+            .eq('fecha', fecha)
+            .eq('tipo_comida', tipo_comida)
+            .maybeSingle();
+          if (existing) { omitidos++; continue; }
+        }
+
+        const { error: insertErr } = await supabase
+          .from('plan_diario')
+          .upsert([{ fecha, tipo_comida, receta_id }], {
+            onConflict: 'fecha,tipo_comida',
+          });
+        if (insertErr) { omitidos++; } else { insertados++; }
+      }
+    }
+
+    res.json({ insertados, omitidos });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/plan/mover — Mueve o intercambia entradas del plan
+// Body: { plan_id_origen, fecha_destino, tipo_comida_destino,
+//         plan_id_destino? }
+// ─────────────────────────────────────────────────────────────
+router.post('/mover', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { plan_id_origen, fecha_destino, tipo_comida_destino, plan_id_destino } = req.body as {
+      plan_id_origen: string;
+      fecha_destino: string;
+      tipo_comida_destino: string;
+      plan_id_destino?: string;
+    };
+
+    if (!plan_id_origen || !fecha_destino || !tipo_comida_destino) {
+      res.status(400).json({ error: 'plan_id_origen, fecha_destino y tipo_comida_destino son requeridos.' });
+      return;
+    }
+
+    // Leer origen para saber su fecha/tipo actuales (necesario para el intercambio)
+    const { data: origen, error: origenErr } = await supabase
+      .from('plan_diario')
+      .select('*')
+      .eq('id', plan_id_origen)
+      .single();
+
+    if (origenErr || !origen) {
+      res.status(404).json({ error: 'Entrada de plan no encontrada.' });
+      return;
+    }
+
+    if (plan_id_destino) {
+      // INTERCAMBIO: origen ↔ destino
+      const { data: destino, error: destErr } = await supabase
+        .from('plan_diario')
+        .select('*')
+        .eq('id', plan_id_destino)
+        .single();
+
+      if (destErr || !destino) {
+        res.status(404).json({ error: 'Entrada destino no encontrada.' });
+        return;
+      }
+
+      // Actualizar origen con las coordenadas del destino
+      await supabase.from('plan_diario').update({
+        fecha:       destino.fecha,
+        tipo_comida: destino.tipo_comida,
+      }).eq('id', plan_id_origen);
+
+      // Actualizar destino con las coordenadas del origen
+      const { data: destinoActualizado } = await supabase.from('plan_diario').update({
+        fecha:       origen.fecha,
+        tipo_comida: origen.tipo_comida,
+      }).eq('id', plan_id_destino).select().single();
+
+      const { data: origenActualizado } = await supabase
+        .from('plan_diario').select('*').eq('id', plan_id_origen).single();
+
+      res.json({ origen: origenActualizado, destino: destinoActualizado });
+    } else {
+      // MOVER a celda vacía
+      const { data: origenActualizado, error: moveErr } = await supabase
+        .from('plan_diario')
+        .update({ fecha: fecha_destino, tipo_comida: tipo_comida_destino })
+        .eq('id', plan_id_origen)
+        .select()
+        .single();
+
+      if (moveErr) throw Object.assign(new Error(moveErr.message), { statusCode: 400 });
+
+      res.json({ origen: origenActualizado });
+    }
   } catch (err) {
     next(err);
   }

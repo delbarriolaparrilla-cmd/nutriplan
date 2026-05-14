@@ -84,7 +84,7 @@ export function RecipeDetail({ receta, tipoComida, onAgregarAlPlan, guardando }:
           className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-opacity disabled:opacity-60"
           style={{ backgroundColor: '#1D9E75' }}
         >
-          {guardando ? 'Guardando...' : `Agregar al plan de hoy (${tipoLabel[tipoComida]})`}
+          {guardando ? 'Guardando...' : `Agregar al plan → ${tipoLabel[tipoComida]}`}
         </button>
       </div>
     </div>

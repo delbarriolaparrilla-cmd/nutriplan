@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { GenerarRecetaParams, GrupoNutricional, RecetaGenerada } from '../types/index.js';
+import { GenerarRecetaParams, GenerarVariacionesParams, GrupoNutricional, RecetaGenerada } from '../types/index.js';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -227,6 +227,93 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
 
   const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
   return parsed.recetas;
+}
+
+// ─────────────────────────────────────────────────────────────
+// generarVariaciones
+// Genera N recetas DIFERENTES para el mismo tipo de comida,
+// nutricionalmente equivalentes y accesibles en mercado local.
+// ─────────────────────────────────────────────────────────────
+
+export async function generarVariaciones(params: GenerarVariacionesParams): Promise<RecetaGenerada[]> {
+  const {
+    tipoComida,
+    numDias,
+    caloriasObjetivo,
+    objetivo,
+    condicionesMedicas,
+    preferenciasAlimentarias,
+    recetaBaseNombre,
+  } = params;
+
+  const adaptaciones = buildAdaptaciones(condicionesMedicas, preferenciasAlimentarias, objetivo);
+
+  const referenciaTexto = recetaBaseNombre
+    ? `Inspírate en la receta base "${recetaBaseNombre}" pero genera variaciones DISTINTAS — misma categoría nutricional, diferente preparación o ingrediente principal.`
+    : `Genera recetas variadas para ${tipoComida}, todas nutricionalmente equivalentes.`;
+
+  const userPrompt = `Eres nutriólogo mexicano especializado en SMAE. Genera ${numDias} recetas DIFERENTES para ${tipoComida}.
+
+${referenciaTexto}
+
+Cada receta debe:
+- Ser nutricionalmente equivalente (${caloriasObjetivo} kcal ±50kcal por porción)
+- Usar ingredientes accesibles en mercado, tianguis o abarrotes de Michoacán
+- Ser DIFERENTE a las demás: varía el ingrediente principal, la técnica de cocción o la combinación
+- Expresar cantidades en medidas caseras (tazas, cucharadas, piezas), NO en gramos
+- Tener un costo_estimado_mxn realista para 1 porción (máx $40 MXN)
+${adaptaciones}
+
+Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
+{
+  "recetas": [
+    {
+      "nombre": "string",
+      "descripcion": "string (1-2 oraciones apetitosas y sencillas)",
+      "tiempo_minutos": number,
+      "dificultad": "facil" | "media" | "dificil",
+      "calorias": number,
+      "proteina_g": number,
+      "carbs_g": number,
+      "grasa_g": number,
+      "ingredientes": [
+        { "nombre": "string", "cantidad": "string (medidas caseras)", "grupo": "string (grupo SMAE)" }
+      ],
+      "pasos": ["string"],
+      "tags": ["string"],
+      "costo_estimado_mxn": number,
+      "nota_nutricional": "string (max 2 oraciones, sin tecnicismos)",
+      "grupo_smae_principal": "string"
+    }
+  ]
+}`;
+
+  const message = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT_RECETAS,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  const content = message.content[0];
+  if (content.type !== 'text') {
+    throw new Error('Respuesta inesperada de Claude');
+  }
+
+  const text = content.text.trim();
+  const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
+  const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
+
+  // Garantizar que devolvemos exactamente numDias recetas
+  // (Claude puede devolver más o menos — repetimos o truncamos según sea necesario)
+  const recetas = parsed.recetas;
+  if (recetas.length === 0) throw new Error('Claude no generó ninguna variación');
+
+  const resultado: RecetaGenerada[] = [];
+  for (let i = 0; i < numDias; i++) {
+    resultado.push(recetas[i % recetas.length]);
+  }
+  return resultado;
 }
 
 // ─────────────────────────────────────────────────────────────

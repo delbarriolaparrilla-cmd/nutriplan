@@ -94,6 +94,16 @@ export interface GenerarRecetaParams {
   preferenciasAlimentarias?: Record<string, boolean>;
 }
 
+export interface GenerarVariacionesParams {
+  tipoComida: 'desayuno' | 'colacion' | 'comida' | 'cena';
+  numDias: number;
+  caloriasObjetivo: number;
+  objetivo?: string;
+  condicionesMedicas?: Record<string, boolean>;
+  preferenciasAlimentarias?: Record<string, boolean>;
+  recetaBaseNombre?: string;
+}
+
 export interface RecetaGenerada {
   nombre: string;
   descripcion: string;

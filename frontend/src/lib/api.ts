@@ -134,6 +134,43 @@ export async function getDespensa(
   });
 }
 
+// --- Plan múltiple / mover ---
+
+export interface AgregarMultipleParams {
+  receta_id?: string;
+  tipo_comida: TipoComida;
+  fechas: string[];
+  modo: 'repetir' | 'variaciones';
+  reemplazar?: boolean;
+  perfil_info?: {
+    objetivo?: string;
+    condiciones?: Record<string, boolean>;
+    preferencias?: Record<string, boolean>;
+  };
+  receta_base?: { nombre: string; calorias: number };
+}
+
+export async function agregarMultiple(
+  params: AgregarMultipleParams
+): Promise<{ insertados: number; omitidos: number }> {
+  return request('/api/plan/agregar-multiple', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export async function moverPlan(params: {
+  plan_id_origen: string;
+  fecha_destino: string;
+  tipo_comida_destino: TipoComida;
+  plan_id_destino?: string;
+}): Promise<{ origen: PlanDiario; destino?: PlanDiario }> {
+  return request('/api/plan/mover', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 // --- Historial ---
 
 export async function getHistorial(dias?: number): Promise<{ historial: HistorialMacros[] }> {

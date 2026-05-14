@@ -3,9 +3,10 @@ import { Topbar } from '../components/layout/Topbar.js';
 import { IngredientSelector } from '../components/recetas/IngredientSelector.js';
 import { RecipeCard } from '../components/recetas/RecipeCard.js';
 import { RecipeDetail } from '../components/recetas/RecipeDetail.js';
+import { AgregarModal, ConfirmarParams } from '../components/recetas/AgregarModal.js';
 import { useGenerarRecetas } from '../hooks/useRecetas.js';
 import { useProfile } from '../hooks/useProfile.js';
-import { usePlanDiario } from '../hooks/usePlanDiario.js';
+import { agregarAlPlan, agregarMultiple } from '../lib/api.js';
 import { RecetaGenerada, TipoComida } from '../types/index.js';
 
 const TIPOS: { value: TipoComida; label: string; emoji: string }[] = [
@@ -17,13 +18,8 @@ const TIPOS: { value: TipoComida; label: string; emoji: string }[] = [
 
 const TIEMPOS = [15, 20, 30, 45];
 
-function hoyISO() {
-  return new Date().toISOString().split('T')[0];
-}
-
 export default function Recetas() {
   const { perfil } = useProfile();
-  const { agregar } = usePlanDiario(hoyISO());
   const { sugerencias, generando, error, generar, guardar } = useGenerarRecetas();
 
   const [tipoComida, setTipoComida] = useState<TipoComida>('comida');
@@ -31,7 +27,8 @@ export default function Recetas() {
   const [tiempoMax, setTiempoMax] = useState(30);
   const [seleccionada, setSeleccionada] = useState<RecetaGenerada | null>(null);
   const [guardando, setGuardando] = useState(false);
-  const [exito, setExito] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+  const [exitoMsg, setExitoMsg] = useState<string | null>(null);
 
   const calorias = {
     desayuno: 400,
@@ -42,7 +39,7 @@ export default function Recetas() {
 
   const handleGenerar = () => {
     setSeleccionada(null);
-    setExito(false);
+    setExitoMsg(null);
     generar({
       tipoComida,
       ingredientesDisponibles: ingredientes,
@@ -66,13 +63,51 @@ export default function Recetas() {
     });
   };
 
-  const handleAgregarAlPlan = async () => {
+  const handleAbrirModal = () => {
+    if (!seleccionada) return;
+    setModalAbierto(true);
+  };
+
+  const handleConfirmar = async ({ modo, fechas }: ConfirmarParams) => {
     if (!seleccionada) return;
     setGuardando(true);
     try {
-      const guardada = await guardar(seleccionada, tipoComida);
-      await agregar({ tipo_comida: tipoComida, receta_id: guardada.id });
-      setExito(true);
+      if (modo === 'hoy') {
+        // Guardar receta en BD y agregar al plan del día elegido
+        const guardada = await guardar(seleccionada, tipoComida);
+        await agregarAlPlan({ fecha: fechas[0], tipo_comida: tipoComida, receta_id: guardada.id });
+        setExitoMsg('Receta agregada al plan.');
+      } else if (modo === 'repetir') {
+        // Guardar la receta una vez y repetirla en todas las fechas
+        const guardada = await guardar(seleccionada, tipoComida);
+        const { insertados, omitidos } = await agregarMultiple({
+          receta_id: guardada.id,
+          tipo_comida: tipoComida,
+          fechas,
+          modo: 'repetir',
+          reemplazar: false,
+        });
+        setExitoMsg(`Receta agregada a ${insertados} día${insertados !== 1 ? 's' : ''}${omitidos > 0 ? ` (${omitidos} omitido${omitidos !== 1 ? 's' : ''} por conflicto)` : ''}.`);
+      } else {
+        // Variaciones: Claude genera una receta diferente por día — no guardamos la base
+        const { insertados, omitidos } = await agregarMultiple({
+          tipo_comida: tipoComida,
+          fechas,
+          modo: 'variaciones',
+          reemplazar: false,
+          perfil_info: {
+            objetivo: perfil?.objetivo ?? undefined,
+            condiciones: perfil?.condiciones_medicas as Record<string, boolean> | undefined,
+            preferencias: perfil?.preferencias_alimentarias as Record<string, boolean> | undefined,
+          },
+          receta_base: {
+            nombre: seleccionada.nombre,
+            calorias: seleccionada.calorias,
+          },
+        });
+        setExitoMsg(`${insertados} variación${insertados !== 1 ? 'es' : ''} generada${insertados !== 1 ? 's' : ''} y agregada${insertados !== 1 ? 's' : ''}${omitidos > 0 ? ` (${omitidos} omitido${omitidos !== 1 ? 's' : ''} por conflicto)` : ''}.`);
+      }
+      setModalAbierto(false);
       setSeleccionada(null);
     } finally {
       setGuardando(false);
@@ -152,9 +187,9 @@ export default function Recetas() {
             </div>
           )}
 
-          {exito && (
+          {exitoMsg && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-700">
-              Receta agregada al plan de hoy.
+              ✓ {exitoMsg}
             </div>
           )}
 
@@ -191,17 +226,33 @@ export default function Recetas() {
             </div>
           )}
 
-          {/* Detalle */}
+          {/* Detalle + botón abrir modal */}
           {seleccionada && (
             <RecipeDetail
               receta={seleccionada}
               tipoComida={tipoComida}
-              onAgregarAlPlan={handleAgregarAlPlan}
+              onAgregarAlPlan={handleAbrirModal}
               guardando={guardando}
             />
           )}
         </div>
       </div>
+
+      {/* Modal agregar al plan */}
+      {modalAbierto && seleccionada && (
+        <AgregarModal
+          receta={seleccionada}
+          tipoComida={tipoComida}
+          perfilInfo={{
+            objetivo: perfil?.objetivo ?? undefined,
+            condiciones: perfil?.condiciones_medicas as Record<string, boolean> | undefined,
+            preferencias: perfil?.preferencias_alimentarias as Record<string, boolean> | undefined,
+          }}
+          cargando={guardando}
+          onConfirmar={handleConfirmar}
+          onClose={() => setModalAbierto(false)}
+        />
+      )}
     </div>
   );
 }
