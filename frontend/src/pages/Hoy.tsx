@@ -2,7 +2,7 @@ import { Topbar } from '../components/layout/Topbar.js';
 import { MacrosRow } from '../components/hoy/MacrosRow.js';
 import { MealTimeline } from '../components/hoy/MealTimeline.js';
 import { usePlanDiario } from '../hooks/usePlanDiario.js';
-import { useProfile } from '../hooks/useProfile.js';
+import { useProfile, getComidas } from '../hooks/useProfile.js';
 
 function hoyISO() {
   return new Date().toISOString().split('T')[0];
@@ -10,6 +10,7 @@ function hoyISO() {
 
 export default function Hoy() {
   const { perfil } = useProfile();
+  const comidas = getComidas(perfil);
   const { plan, loading, toggleConsumido, eliminar } = usePlanDiario(hoyISO());
 
   const macros = plan
@@ -51,6 +52,7 @@ export default function Hoy() {
               grasaMax={65}
             />
             <MealTimeline
+              comidas={comidas}
               plan={plan}
               onToggleConsumido={toggleConsumido}
               onEliminar={eliminar}

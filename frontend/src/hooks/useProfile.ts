@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import {
   PerfilNutricional,
   Macros,
+  ComidaDia,
   NivelActividad,
   Objetivo,
   Sexo,
@@ -118,6 +119,65 @@ export function calcularMacros(perfil: PerfilNutricional): Macros {
     carbs_g: Math.round((calorias * carbsPct) / 4),
     grasa_g: Math.round((calorias * grasaPct) / 9),
   };
+}
+
+// ──────────────────────────────────────────────
+// Comidas del día según configuración del perfil
+// ──────────────────────────────────────────────
+
+/**
+ * Cuántas comidas recomienda la IA según objetivo y nivel de actividad.
+ */
+export function recomendarComidas(
+  objetivo?: Objetivo,
+  nivel?: NivelActividad
+): number {
+  if (objetivo === 'perder_peso') return 5;
+  if (nivel === 'sedentario') return 3;
+  if (nivel === 'moderado' || nivel === 'activo' || nivel === 'muy_activo') return 5;
+  return 5;
+}
+
+/**
+ * Devuelve el array de franjas de comida del día según num_comidas_dia.
+ * Los horarios se leen del perfil; si no existen, se usan defaults.
+ *
+ * Nota de modelo de datos: el tipo TipoComida del DB sólo tiene 4 valores
+ * (desayuno | colacion | comida | cena). Para 5 comidas, las dos colaciones
+ * comparten el mismo tipo pero se distinguen por la clave y el label.
+ */
+export function getComidas(perfil: PerfilNutricional | null): ComidaDia[] {
+  const n = perfil?.num_comidas_dia ?? 5;
+  const hd = perfil?.horario_desayuno   ?? '08:00';
+  const hcm = perfil?.horario_colacion_manana ?? '11:00';
+  const hco = perfil?.horario_comida    ?? '14:00';
+  const hm  = perfil?.horario_merienda  ?? '17:00';
+  const hct = perfil?.horario_colacion_tarde  ?? '17:00';
+  const hce = perfil?.horario_cena      ?? '20:00';
+
+  if (n === 3) {
+    return [
+      { key: 'desayuno',  tipo: 'desayuno', label: 'Desayuno', hora: hd,  emoji: '🌅' },
+      { key: 'comida',    tipo: 'comida',   label: 'Comida',   hora: hco, emoji: '🍽️' },
+      { key: 'cena',      tipo: 'cena',     label: 'Cena',     hora: hce, emoji: '🌙' },
+    ];
+  }
+  if (n === 4) {
+    return [
+      { key: 'desayuno',  tipo: 'desayuno', label: 'Desayuno',  hora: hd,  emoji: '🌅' },
+      { key: 'comida',    tipo: 'comida',   label: 'Comida',    hora: hco, emoji: '🍽️' },
+      { key: 'merienda',  tipo: 'colacion', label: 'Merienda',  hora: hm,  emoji: '🍎' },
+      { key: 'cena',      tipo: 'cena',     label: 'Cena',      hora: hce, emoji: '🌙' },
+    ];
+  }
+  // 5 comidas (default)
+  return [
+    { key: 'desayuno',         tipo: 'desayuno', label: 'Desayuno',        hora: hd,  emoji: '🌅' },
+    { key: 'colacion-manana',  tipo: 'colacion', label: 'Colación mañana', hora: hcm, emoji: '🍎' },
+    { key: 'comida',           tipo: 'comida',   label: 'Comida',          hora: hco, emoji: '🍽️' },
+    { key: 'colacion-tarde',   tipo: 'colacion', label: 'Colación tarde',  hora: hct, emoji: '🫐' },
+    { key: 'cena',             tipo: 'cena',     label: 'Cena',            hora: hce, emoji: '🌙' },
+  ];
 }
 
 // ──────────────────────────────────────────────

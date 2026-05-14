@@ -1,27 +1,25 @@
-import { PlanDiario, TipoComida } from '../../types/index.js';
-
-const COMIDAS: { tipo: TipoComida; label: string; hora: string; emoji: string }[] = [
-  { tipo: 'desayuno', label: 'Desayuno', hora: '8:00', emoji: '🌅' },
-  { tipo: 'colacion', label: 'Colación', hora: '11:00', emoji: '🍎' },
-  { tipo: 'comida', label: 'Comida', hora: '14:00', emoji: '🍽️' },
-  { tipo: 'cena', label: 'Cena', hora: '20:00', emoji: '🌙' },
-];
+import { ComidaDia, PlanDiario } from '../../types/index.js';
 
 interface MealTimelineProps {
+  /** Franjas de comida del día según la configuración del perfil */
+  comidas: ComidaDia[];
   plan: PlanDiario[];
   onToggleConsumido: (id: string, consumido: boolean) => void;
   onEliminar: (id: string) => void;
 }
 
-export function MealTimeline({ plan, onToggleConsumido, onEliminar }: MealTimelineProps) {
+export function MealTimeline({ comidas, plan, onToggleConsumido, onEliminar }: MealTimelineProps) {
   return (
     <div className="flex flex-col gap-3">
-      {COMIDAS.map(({ tipo, label, hora, emoji }) => {
+      {comidas.map(({ key, tipo, label, hora, emoji }) => {
+        // Para cada franja buscamos la entrada del plan por tipo de comida.
+        // Nota: cuando hay dos colaciones (5 comidas), ambas muestran la misma
+        // entrada de plan (limitación del modelo de datos actual — 4 tipos únicos).
         const entrada = plan.find((p) => p.tipo_comida === tipo);
 
         return (
           <div
-            key={tipo}
+            key={key}
             className={`bg-white rounded-2xl p-4 border transition-all ${
               entrada?.consumido ? 'border-green-200 bg-green-50' : 'border-gray-100'
             }`}
@@ -51,7 +49,7 @@ export function MealTimeline({ plan, onToggleConsumido, onEliminar }: MealTimeli
                     onClick={() => onEliminar(entrada.id)}
                     className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
                   >
-                    x
+                    ✕
                   </button>
                 </div>
               ) : (

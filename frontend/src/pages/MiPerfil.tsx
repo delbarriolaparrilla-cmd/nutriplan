@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useProfile, calcularMacros, categoriaIMC } from '../hooks/useProfile';
+import { useProfile, calcularMacros, categoriaIMC, recomendarComidas } from '../hooks/useProfile';
 import { Topbar } from '../components/layout/Topbar.js';
 import {
   CondicionesMedicas,
@@ -114,9 +115,90 @@ function MacroBar({
 // Página principal
 // ──────────────────────────────────────────────
 
+// Inputs de hora por número de comidas (mismo mapa que Onboarding)
+type CampoHorario =
+  | 'horario_desayuno' | 'horario_colacion_manana' | 'horario_comida'
+  | 'horario_merienda' | 'horario_colacion_tarde'  | 'horario_cena';
+
+interface InputHora { campo: CampoHorario; label: string; emoji: string }
+
+const HORARIOS_POR_COMIDAS: Record<3 | 4 | 5, InputHora[]> = {
+  3: [
+    { campo: 'horario_desayuno', label: 'Desayuno', emoji: '🌅' },
+    { campo: 'horario_comida',   label: 'Comida',   emoji: '🍽️' },
+    { campo: 'horario_cena',     label: 'Cena',     emoji: '🌙' },
+  ],
+  4: [
+    { campo: 'horario_desayuno', label: 'Desayuno', emoji: '🌅' },
+    { campo: 'horario_comida',   label: 'Comida',   emoji: '🍽️' },
+    { campo: 'horario_merienda', label: 'Merienda', emoji: '🍎' },
+    { campo: 'horario_cena',     label: 'Cena',     emoji: '🌙' },
+  ],
+  5: [
+    { campo: 'horario_desayuno',        label: 'Desayuno',        emoji: '🌅' },
+    { campo: 'horario_colacion_manana', label: 'Colación mañana', emoji: '🍎' },
+    { campo: 'horario_comida',          label: 'Comida',          emoji: '🍽️' },
+    { campo: 'horario_colacion_tarde',  label: 'Colación tarde',  emoji: '🫐' },
+    { campo: 'horario_cena',            label: 'Cena',            emoji: '🌙' },
+  ],
+};
+
+interface HorariosState {
+  num_comidas_dia: number;
+  horario_desayuno: string;
+  horario_colacion_manana: string;
+  horario_comida: string;
+  horario_merienda: string;
+  horario_colacion_tarde: string;
+  horario_cena: string;
+}
+
 export default function MiPerfil() {
   const navigate = useNavigate();
-  const { perfil, loading } = useProfile();
+  const { perfil, loading, guardarPerfil } = useProfile();
+
+  // ── Estado local para la sección de horarios ──
+  const [horarios, setHorarios] = useState<HorariosState>({
+    num_comidas_dia: 5,
+    horario_desayuno: '08:00',
+    horario_colacion_manana: '11:00',
+    horario_comida: '14:00',
+    horario_merienda: '17:00',
+    horario_colacion_tarde: '17:00',
+    horario_cena: '20:00',
+  });
+  const [guardandoHorarios, setGuardandoHorarios] = useState(false);
+  const [toast, setToast] = useState('');
+
+  // Sincronizar con el perfil cuando carga
+  useEffect(() => {
+    if (!perfil) return;
+    setHorarios({
+      num_comidas_dia:         perfil.num_comidas_dia          ?? 5,
+      horario_desayuno:        perfil.horario_desayuno         ?? '08:00',
+      horario_colacion_manana: perfil.horario_colacion_manana  ?? '11:00',
+      horario_comida:          perfil.horario_comida           ?? '14:00',
+      horario_merienda:        perfil.horario_merienda         ?? '17:00',
+      horario_colacion_tarde:  perfil.horario_colacion_tarde   ?? '17:00',
+      horario_cena:            perfil.horario_cena             ?? '20:00',
+    });
+  }, [perfil]);
+
+  const mostrarToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  const handleGuardarHorarios = async () => {
+    setGuardandoHorarios(true);
+    try {
+      await guardarPerfil(horarios);
+      mostrarToast('✓ Horarios guardados correctamente');
+    } catch {
+      mostrarToast('Error al guardar. Intenta de nuevo.');
+    }
+    setGuardandoHorarios(false);
+  };
 
   if (loading) {
     return (
@@ -357,20 +439,83 @@ export default function MiPerfil() {
             </SectionCard>
           )}
 
-          {/* ── Horarios ── */}
-          {(perfil.horario_desayuno || perfil.horario_comida || perfil.horario_cena) && (
-            <SectionCard title="Horarios de comida">
-              <DataRow label="Desayuno" value={perfil.horario_desayuno} />
-              <DataRow label="Comida" value={perfil.horario_comida} />
-              <DataRow label="Cena" value={perfil.horario_cena} />
-              <DataRow label="Comidas al día" value={perfil.num_comidas_dia} />
-              {perfil.cocina_preferida && (
-                <DataRow label="Cocina preferida" value={perfil.cocina_preferida} />
-              )}
-            </SectionCard>
-          )}
+          {/* ── Horarios de comida (editables) ── */}
+          <SectionCard title="Horarios de comida">
+            {/* Chip de recomendación */}
+            {perfil.objetivo && perfil.nivel_actividad && (() => {
+              const rec = recomendarComidas(perfil.objetivo, perfil.nivel_actividad);
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-4 w-fit"
+                  style={{ backgroundColor: '#E1F5EE', border: '1px solid #A7E3C8' }}>
+                  <span>✨</span>
+                  <span className="text-xs font-medium" style={{ color: '#085041' }}>
+                    Recomendado para tu perfil: <strong>{rec} comidas</strong>
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Selector número de comidas */}
+            <div className="mb-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Comidas al día
+              </p>
+              <div className="flex gap-2">
+                {([3, 4, 5] as const).map((n) => (
+                  <button key={n} type="button"
+                    onClick={() => setHorarios(h => ({ ...h, num_comidas_dia: n }))}
+                    className="flex-1 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all"
+                    style={{
+                      borderColor:     horarios.num_comidas_dia === n ? '#1D9E75' : '#E5E7EB',
+                      backgroundColor: horarios.num_comidas_dia === n ? '#F0FBF7' : '#fff',
+                      color:           horarios.num_comidas_dia === n ? '#085041' : '#6B7280',
+                    }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Inputs de hora */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              {(HORARIOS_POR_COMIDAS[horarios.num_comidas_dia as 3 | 4 | 5] ?? HORARIOS_POR_COMIDAS[5])
+                .map(({ campo, label, emoji }) => (
+                  <div key={campo}>
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 mb-1.5">
+                      <span>{emoji}</span> {label}
+                    </label>
+                    <input
+                      type="time"
+                      value={horarios[campo] as string}
+                      onChange={e => setHorarios(h => ({ ...h, [campo]: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                  </div>
+                ))}
+            </div>
+
+            {/* Botón guardar */}
+            <button
+              onClick={handleGuardarHorarios}
+              disabled={guardandoHorarios}
+              className="w-full py-2.5 rounded-xl text-white text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ backgroundColor: '#1D9E75' }}
+            >
+              {guardandoHorarios ? 'Guardando…' : 'Guardar horarios'}
+            </button>
+          </SectionCard>
         </div>
       </div>
+
+      {/* Toast de confirmación */}
+      {toast && (
+        <div
+          className="fixed bottom-6 right-6 px-5 py-3 rounded-xl text-white text-sm font-medium shadow-lg z-50 transition-all"
+          style={{ backgroundColor: toast.startsWith('✓') ? '#1D9E75' : '#EF4444' }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

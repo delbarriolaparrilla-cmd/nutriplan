@@ -60,7 +60,10 @@ export interface PerfilNutricional {
   // Horarios y preferencias de comida
   num_comidas_dia?: number;
   horario_desayuno?: string;
+  horario_colacion_manana?: string;
   horario_comida?: string;
+  horario_merienda?: string;
+  horario_colacion_tarde?: string;
   horario_cena?: string;
   cocina_preferida?: string;
   otras_restricciones?: string;
@@ -147,6 +150,16 @@ export interface HistorialMacros {
 }
 
 export type TipoComida = 'desayuno' | 'colacion' | 'comida' | 'cena';
+
+/** Una franja de comida del día para mostrar en el timeline */
+export interface ComidaDia {
+  /** Clave única para React (incluye posición para distinguir 2 colaciones) */
+  key: string;
+  tipo: TipoComida;
+  label: string;
+  hora: string;
+  emoji: string;
+}
 
 export interface GenerarRecetaParams {
   tipoComida: TipoComida;
