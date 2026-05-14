@@ -1,7 +1,72 @@
+// ============================================================
+// Tipos base del dominio NutriPlan
+// ============================================================
+
+export type NivelActividad = 'sedentario' | 'ligero' | 'moderado' | 'activo' | 'muy_activo';
+export type Objetivo =
+  | 'perder_peso'
+  | 'mantener_peso'
+  | 'ganar_musculo'
+  | 'mejorar_salud'
+  | 'control_medico';
+export type Sexo = 'masculino' | 'femenino' | 'otro';
+
+export interface CondicionesMedicas {
+  diabetes_tipo1?: boolean;
+  diabetes_tipo2?: boolean;
+  hipertension?: boolean;
+  colesterol_alto?: boolean;
+  intolerancia_lactosa?: boolean;
+  intolerancia_gluten?: boolean;
+  enfermedad_celiaca?: boolean;
+  hipotiroidismo?: boolean;
+  hipertiroidismo?: boolean;
+  sindrome_intestino_irritable?: boolean;
+}
+
+export interface PreferenciasAlimentarias {
+  vegetariano?: boolean;
+  vegano?: boolean;
+  sin_cerdo?: boolean;
+  sin_mariscos?: boolean;
+  sin_nueces?: boolean;
+  sin_huevo?: boolean;
+}
+
 export interface PerfilNutricional {
   id: string;
+  user_id?: string;
+  // Datos personales
   nombre: string;
+  apellido?: string;
+  fecha_nacimiento?: string;
+  edad?: number;
+  sexo?: Sexo;
+  pais?: string;
+  ciudad?: string;
+  // Datos físicos
+  peso_kg?: number;
+  estatura_cm?: number;
+  imc?: number;
+  nivel_actividad?: NivelActividad;
+  // Objetivo
+  objetivo?: Objetivo;
+  // Calorías
+  calorias_base?: number;
   calorias_meta: number;
+  // Condiciones y preferencias
+  condiciones_medicas?: CondicionesMedicas;
+  preferencias_alimentarias?: PreferenciasAlimentarias;
+  // Horarios y preferencias de comida
+  num_comidas_dia?: number;
+  horario_desayuno?: string;
+  horario_comida?: string;
+  horario_cena?: string;
+  cocina_preferida?: string;
+  otras_restricciones?: string;
+  // Estado del onboarding
+  perfil_completo?: boolean;
+  // Timestamps
   created_at: string;
   updated_at: string;
 }
@@ -104,4 +169,11 @@ export interface RecetaGenerada {
   ingredientes: Ingrediente[];
   pasos: string[];
   tags: string[];
+}
+
+export interface Macros {
+  calorias: number;
+  proteina_g: number;
+  carbs_g: number;
+  grasa_g: number;
 }

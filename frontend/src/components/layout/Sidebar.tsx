@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useProfile } from '../../hooks/useProfile';
+import { Objetivo } from '../../types/index.js';
 
 const NAV_ITEMS = [
   { to: '/hoy', label: 'Hoy', icon: '🏠' },
@@ -7,7 +9,16 @@ const NAV_ITEMS = [
   { to: '/semana', label: 'Semana', icon: '📅' },
   { to: '/mis-grupos', label: 'Mis Grupos', icon: '🥗' },
   { to: '/progreso', label: 'Progreso', icon: '📊' },
+  { to: '/mi-perfil', label: 'Mi Perfil', icon: '👤' },
 ];
+
+const OBJETIVO_SHORT: Record<Objetivo, string> = {
+  perder_peso: 'Perder peso',
+  mantener_peso: 'Mantener peso',
+  ganar_musculo: 'Ganar músculo',
+  mejorar_salud: 'Mejorar salud',
+  control_medico: 'Control médico',
+};
 
 function SignOutIcon() {
   return (
@@ -32,15 +43,21 @@ function SignOutIcon() {
 
 export function Sidebar() {
   const { user, signOut } = useAuth();
+  const { perfil } = useProfile();
 
-  // Nombre a mostrar: user_metadata.nombre (registro), full_name (Google OAuth) o parte del email
+  // Nombre preferido: perfil > user_metadata > email
   const nombre =
+    perfil?.nombre ||
     user?.user_metadata?.nombre ||
-    user?.user_metadata?.full_name ||
+    user?.user_metadata?.full_name?.split(' ')[0] ||
     user?.email?.split('@')[0] ||
     'Usuario';
 
   const inicial = nombre.charAt(0).toUpperCase();
+
+  const objetivoLabel = perfil?.objetivo
+    ? OBJETIVO_SHORT[perfil.objetivo]
+    : null;
 
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-gray-100 flex flex-col py-6 px-3">
@@ -74,19 +91,26 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Usuario + cerrar sesión */}
+      {/* Usuario + objetivo + cerrar sesión */}
       <div className="px-3 pt-4 mt-2 border-t border-gray-100">
-        {/* Avatar + nombre */}
-        <div className="flex items-center gap-2.5 mb-3 px-1">
+        {/* Avatar + nombre + objetivo */}
+        <div className="flex items-start gap-2.5 mb-3 px-1">
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 mt-0.5"
             style={{ backgroundColor: '#1D9E75' }}
           >
             {inicial}
           </div>
-          <span className="text-xs font-medium text-gray-700 truncate" title={nombre}>
-            {nombre}
-          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-700 truncate" title={nombre}>
+              {nombre}
+            </p>
+            {objetivoLabel && (
+              <p className="text-xs text-gray-400 truncate" title={`Objetivo: ${objetivoLabel}`}>
+                {objetivoLabel}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Botón cerrar sesión */}

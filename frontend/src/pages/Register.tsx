@@ -50,12 +50,14 @@ export default function Register() {
       return;
     }
 
-    // Crear registro en tabla perfil
+    // Crear registro en tabla perfil con user_id y redirigir a onboarding
     if (data.user) {
-      await supabase.from('perfil').insert({ nombre });
+      await supabase
+        .from('perfil')
+        .insert({ nombre, user_id: data.user.id, perfil_completo: false });
     }
 
-    navigate('/hoy');
+    navigate('/onboarding');
   };
 
   return (
