@@ -2,8 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Topbar } from '../components/layout/Topbar.js';
 import { WeekGrid } from '../components/semana/WeekGrid.js';
+import { RecetaDetalleModal } from '../components/semana/RecetaDetalleModal.js';
 import { getPlanDia, moverPlan, eliminarDePlan, ApiError } from '../lib/api.js';
 import { PlanDiario, TipoComida } from '../types/index.js';
+import { exportarSemanaPDF } from '../utils/exportPDF.js';
 
 function getSemana(): string[] {
   const hoy = new Date();
@@ -28,6 +30,7 @@ export default function Semana() {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [toastId, setToastId] = useState(0);
+  const [recetaDetalle, setRecetaDetalle] = useState<PlanDiario | null>(null);
 
   const fechas = getSemana();
 
@@ -131,6 +134,9 @@ export default function Semana() {
     });
   };
 
+  // ─── Ver detalle de receta ───────────────────────────────────
+  const handleVerDetalle = (entrada: PlanDiario) => setRecetaDetalle(entrada);
+
   // ─── Eliminar entrada del plan ────────────────────────────────
   const handleEliminar = async (planId: string) => {
     // Optimistic: quitar del estado de inmediato
@@ -227,7 +233,27 @@ export default function Semana() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
-      <Topbar title="Semana" subtitle="Arrastra para reorganizar tu plan" />
+      <Topbar
+        title="Semana"
+        subtitle="Arrastra para reorganizar tu plan"
+        rightContent={
+          !loading && semana.length > 0 ? (
+            <button
+              onClick={() => exportarSemanaPDF(semana)}
+              title="Exportar plan a PDF"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '6px 12px', borderRadius: '10px',
+                border: '1.5px solid #E5E7EB', background: 'white',
+                fontSize: '12px', fontWeight: 600, color: '#374151',
+                cursor: 'pointer',
+              }}
+            >
+              📄 Exportar PDF
+            </button>
+          ) : undefined
+        }
+      />
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6" style={{ backgroundColor: '#F8FDFB' }}>
         {loading ? (
@@ -237,7 +263,7 @@ export default function Semana() {
         ) : (
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <div className="bg-white rounded-2xl border border-gray-100 p-3 sm:p-4 overflow-x-auto">
-              <WeekGrid semana={semana} onEliminar={handleEliminar} />
+              <WeekGrid semana={semana} onEliminar={handleEliminar} onVerDetalle={handleVerDetalle} />
             </div>
 
             {/* Hint */}
@@ -247,6 +273,14 @@ export default function Semana() {
           </DndContext>
         )}
       </div>
+
+      {/* Detalle de receta */}
+      {recetaDetalle && (
+        <RecetaDetalleModal
+          entrada={recetaDetalle}
+          onClose={() => setRecetaDetalle(null)}
+        />
+      )}
 
       {/* Toasts */}
       <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50 pointer-events-none">

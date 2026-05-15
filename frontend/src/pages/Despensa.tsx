@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Topbar } from '../components/layout/Topbar.js';
 import { useProfile } from '../hooks/useProfile.js';
 import { getDespensa, DespensaResult, ItemDespensa } from '../lib/api.js';
+import { exportarDespensaPDF } from '../utils/exportPDF.js';
 
 // ─── Helpers de fecha ────────────────────────────────────────
 
@@ -143,9 +144,12 @@ export default function Despensa() {
     return ordered;
   }, [resultado]);
 
-  // ── Print ──────────────────────────────────────────────────
+  // ── Exportar PDF ───────────────────────────────────────────
 
-  const handlePrint = () => window.print();
+  const handleExportarPDF = () => {
+    if (!resultado) return;
+    exportarDespensaPDF(resultado, gruposLista, diasArray, numPersonas);
+  };
 
   // ─────────────────────────────────────────────────────────────
   // RENDER
@@ -351,8 +355,8 @@ export default function Despensa() {
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={handlePrint} style={iconBtnStyle} title="Imprimir / Guardar PDF">
-                    🖨️ Imprimir
+                  <button onClick={handleExportarPDF} style={iconBtnStyle} title="Exportar lista a PDF">
+                    📄 Exportar PDF
                   </button>
                   <button
                     onClick={() => { setResultado(null); setComprados(new Set()); }}
@@ -487,14 +491,6 @@ export default function Despensa() {
         </div>
       </div>
 
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          .sidebar-desktop, .bottom-nav, header { display: none !important; }
-          body { background: white; }
-          .main-with-bottom-nav { padding-bottom: 0 !important; }
-        }
-      `}</style>
     </div>
   );
 }
