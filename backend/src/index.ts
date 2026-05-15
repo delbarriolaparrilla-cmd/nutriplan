@@ -12,8 +12,30 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 const app = express();
 const PORT = process.env.PORT ?? 3002;
 
-// Middlewares
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? 'http://localhost:5173' }));
+// ── CORS ────────────────────────────────────────────────────────────────────
+// CORS_ORIGIN puede ser un único origen o una lista separada por comas.
+// Ej: CORS_ORIGIN=https://nutriplan-mauve-eight.vercel.app,http://localhost:5173
+const allowedOrigins: string[] = (
+  process.env.CORS_ORIGIN ?? 'http://localhost:5173'
+).split(',').map((o) => o.trim()).filter(Boolean);
+
+app.use(
+  cors({
+    origin: (incoming, callback) => {
+      // Permitir requests sin Origin (curl, Postman, server-to-server)
+      if (!incoming) return callback(null, true);
+      if (allowedOrigins.includes(incoming)) return callback(null, true);
+      callback(new Error(`Origin no permitido por CORS: ${incoming}`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
+
+// Responder a preflight OPTIONS en todas las rutas antes de cualquier auth
+app.options('*', cors());
+
 app.use(express.json({ limit: '1mb' }));
 
 // Health check
