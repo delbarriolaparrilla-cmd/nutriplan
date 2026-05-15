@@ -1,9 +1,43 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GenerarRecetaParams, GenerarVariacionesParams, GrupoNutricional, RecetaGenerada } from '../types/index.js';
+import { supabase } from './supabaseService.js';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
+
+// ─────────────────────────────────────────────────────────────
+// Registro de uso de tokens
+// ─────────────────────────────────────────────────────────────
+
+async function registrarUsoTokens(
+  userId: string,
+  inputTokens: number,
+  outputTokens: number,
+): Promise<void> {
+  try {
+    const total = inputTokens + outputTokens;
+    // Precio claude-sonnet: input $3/M, output $15/M
+    const costoUSD = (inputTokens * 3 + outputTokens * 15) / 1_000_000;
+    const fecha = new Date().toISOString().split('T')[0];
+
+    await supabase.rpc('registrar_uso_tokens', {
+      p_user_id:    userId,
+      p_fecha:      fecha,
+      p_tokens_input:  inputTokens,
+      p_tokens_output: outputTokens,
+      p_costo_usd:  costoUSD,
+    });
+
+    await supabase.rpc('incrementar_tokens', {
+      p_user_id: userId,
+      p_tokens:  total,
+    });
+  } catch {
+    // No fallar la request principal si el tracking falla
+    console.warn('[tokens] Error registrando uso de tokens para', userId);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 // System prompt SMAE — nutrición comunitaria mexicana
@@ -146,7 +180,7 @@ function buildAdaptaciones(
 // generarRecetas
 // ─────────────────────────────────────────────────────────────
 
-export async function generarRecetas(params: GenerarRecetaParams): Promise<RecetaGenerada[]> {
+export async function generarRecetas(params: GenerarRecetaParams, userId?: string): Promise<RecetaGenerada[]> {
   const {
     tipoComida,
     ingredientesDisponibles,
@@ -225,6 +259,11 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
   const text = content.text.trim();
   const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
 
+  // Registrar tokens si tenemos el userId
+  if (userId) {
+    await registrarUsoTokens(userId, message.usage.input_tokens, message.usage.output_tokens);
+  }
+
   const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
   return parsed.recetas;
 }
@@ -235,7 +274,7 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
 // nutricionalmente equivalentes y accesibles en mercado local.
 // ─────────────────────────────────────────────────────────────
 
-export async function generarVariaciones(params: GenerarVariacionesParams): Promise<RecetaGenerada[]> {
+export async function generarVariaciones(params: GenerarVariacionesParams, userId?: string): Promise<RecetaGenerada[]> {
   const {
     tipoComida,
     numDias,
@@ -302,6 +341,11 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
 
   const text = content.text.trim();
   const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
+  // Registrar tokens si tenemos el userId
+  if (userId) {
+    await registrarUsoTokens(userId, message.usage.input_tokens, message.usage.output_tokens);
+  }
+
   const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
 
   // Garantizar que devolvemos exactamente numDias recetas

@@ -1,12 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { generarRecetas } from '../services/claudeService.js';
 import { supabase } from '../services/supabaseService.js';
+import { extractUser } from '../middleware/adminAuth.js';
 import { GenerarRecetaParams } from '../types/index.js';
 
 const router = Router();
 
 // POST /api/recetas/generar — Genera recetas con IA
-router.post('/generar', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/generar', extractUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const params: GenerarRecetaParams = req.body;
 
@@ -15,7 +16,8 @@ router.post('/generar', async (req: Request, res: Response, next: NextFunction) 
       return;
     }
 
-    const recetas = await generarRecetas(params);
+    const userId = (req as Request & { userId?: string }).userId;
+    const recetas = await generarRecetas(params, userId);
     res.json({ recetas });
   } catch (err) {
     next(err);

@@ -6,6 +6,7 @@ import planRouter from './routes/plan.js';
 import perfilRouter from './routes/perfil.js';
 import historialRouter from './routes/historial.js';
 import despensaRouter from './routes/despensa.js';
+import adminRouter from './routes/admin.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/api/plan', planRouter);
 app.use('/api/perfil', perfilRouter);
 app.use('/api/historial', historialRouter);
 app.use('/api/despensa', despensaRouter);
+app.use('/api/admin', adminRouter);
 
 // Manejo de errores
 app.use(notFound);

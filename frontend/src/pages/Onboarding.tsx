@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useProfile, calcularIMC, categoriaIMC, recomendarComidas } from '../hooks/useProfile';
+import { supabase } from '../lib/supabase';
 import {
   NivelActividad,
   Objetivo,
@@ -572,6 +573,19 @@ export default function Onboarding() {
     setError('');
 
     try {
+      // Crear suscripción de prueba si no existe (idempotente)
+      if (user && !isEditing) {
+        await supabase.from('suscripciones').upsert(
+          [{
+            user_id:          user.id,
+            estado:           'prueba',
+            plan:             'prueba',
+            tokens_limite_mes: 28000,
+          }],
+          { onConflict: 'user_id', ignoreDuplicates: true }
+        );
+      }
+
       await guardarPerfil({
         nombre:               form.nombre,
         apellido:             form.apellido             || undefined,

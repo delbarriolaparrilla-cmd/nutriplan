@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../services/supabaseService.js';
 import { generarVariaciones } from '../services/claudeService.js';
+import { extractUser } from '../middleware/adminAuth.js';
 
 const router = Router();
 
@@ -98,7 +99,7 @@ router.delete('/:id', async (req: Request, res: Response, next: NextFunction) =>
 // Body: { receta_id?, tipo_comida, fechas[], modo, reemplazar,
 //         perfil_info?, receta_base? }
 // ─────────────────────────────────────────────────────────────
-router.post('/agregar-multiple', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/agregar-multiple', extractUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const {
       receta_id,
@@ -126,6 +127,8 @@ router.post('/agregar-multiple', async (req: Request, res: Response, next: NextF
     let insertados = 0;
     let omitidos   = 0;
 
+    const userId = (req as Request & { userId?: string }).userId;
+
     if (modo === 'variaciones') {
       // 1. Generar N recetas distintas con Claude
       const variaciones = await generarVariaciones({
@@ -136,7 +139,7 @@ router.post('/agregar-multiple', async (req: Request, res: Response, next: NextF
         condicionesMedicas:    perfil_info?.condiciones,
         preferenciasAlimentarias: perfil_info?.preferencias,
         recetaBaseNombre: receta_base?.nombre,
-      });
+      }, userId);
 
       // 2. Guardar cada variación en recetas y agregar al plan
       for (let i = 0; i < fechas.length; i++) {

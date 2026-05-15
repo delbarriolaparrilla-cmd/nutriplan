@@ -3,6 +3,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useProfile } from '../../hooks/useProfile';
 import { Objetivo } from '../../types/index.js';
 
+const ADMIN_EMAIL = 'oscar.rodrigo.chavez@gmail.com';
+
 const NAV_ITEMS = [
   { to: '/hoy',       label: 'Hoy',      icon: '🏠' },
   { to: '/recetas',   label: 'Recetas',  icon: '🍽️' },
@@ -37,6 +39,8 @@ export function Sidebar() {
   const { user, signOut } = useAuth();
   const { perfil } = useProfile();
   const location = useLocation();
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   const nombre =
     perfil?.nombre ||
@@ -80,6 +84,25 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Admin link */}
+        {isAdmin && (
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <p className="px-3 text-xs text-gray-400 font-medium mb-1">Administración</p>
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  isActive ? 'text-white' : 'text-gray-600 hover:bg-gray-50'
+                }`
+              }
+              style={({ isActive }) => isActive ? { backgroundColor: '#7C3AED' } : {}}
+            >
+              <span className="text-base">⚙️</span>
+              Administración
+            </NavLink>
+          </div>
+        )}
 
         {/* Usuario + cerrar sesión */}
         <div className="px-3 pt-4 mt-2 border-t border-gray-100">
@@ -125,6 +148,15 @@ export function Sidebar() {
             </NavLink>
           );
         })}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className={`bottom-nav-item${location.pathname.startsWith('/admin') ? ' active' : ''}`}
+          >
+            <span className="nav-icon">⚙️</span>
+            Admin
+          </NavLink>
+        )}
       </nav>
     </>
   );
