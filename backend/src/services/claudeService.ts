@@ -129,7 +129,7 @@ GRUPOS SMAE Y PORCIONES ESTÁNDAR:
 
 REGLAS CRÍTICAS PARA GENERAR RECETAS:
 1. USA SOLO ingredientes que se consiguen en tianguis, mercado municipal o tienda de abarrotes de pueblo en México
-2. PRECIO ESTIMADO máximo por porción: $25-40 MXN — calcula un costo_estimado_mxn realista
+2. PRECIO ESTIMADO máximo por porción: $25-40 MXN (ingredientes accesibles en tianguis o mercado de pueblo)
 3. TÉCNICAS SIMPLES: hervir, freír, asar en comal, guisar. NO uses: horno convencional, licuadora (a menos que sea opcional), técnicas gourmet
 4. PORCIONES según SMAE: siempre en medidas caseras (tazas, cucharadas, piezas). NO en gramos
 5. SABOR MEXICANO: usa hierbas y especias tradicionales gratuitas (epazote, cilantro, orégano, comino, chile seco)
@@ -272,7 +272,6 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
       ],
       "pasos": ["string"],
       "tags": ["string"],
-      "costo_estimado_mxn": number,
       "nota_nutricional": "string (explicación simple, max 2 oraciones, sin tecnicismos)",
       "grupo_smae_principal": "string (ej: 'Rico en proteína vegetal y fibra')"
     }
@@ -332,7 +331,7 @@ Cada receta debe:
 - Usar ingredientes accesibles en mercado, tianguis o abarrotes de Michoacán
 - Ser DIFERENTE a las demás: varía el ingrediente principal, la técnica de cocción o la combinación
 - Expresar cantidades en medidas caseras (tazas, cucharadas, piezas), NO en gramos
-- Tener un costo_estimado_mxn realista para 1 porción (máx $40 MXN)
+- Usar ingredientes con costo máximo de $40 MXN por porción
 ${adaptaciones}
 
 Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
@@ -352,16 +351,16 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
       ],
       "pasos": ["string"],
       "tags": ["string"],
-      "costo_estimado_mxn": number,
       "nota_nutricional": "string (max 2 oraciones, sin tecnicismos)",
       "grupo_smae_principal": "string"
     }
   ]
 }`;
 
+  // max_tokens elevado: 7 recetas × ~800 tokens c/u = ~5600 mínimo necesario
   const message = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT_RECETAS,
     messages: [{ role: 'user', content: userPrompt }],
   });
