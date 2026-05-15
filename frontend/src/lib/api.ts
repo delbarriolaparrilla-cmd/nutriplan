@@ -11,10 +11,10 @@ import {
 // En producción se usa VITE_API_URL (debe ser HTTPS, p. ej. https://tudominio.com).
 // Si no está definida en producción, se usan rutas relativas (/api/...) que el
 // servidor/proxy resuelve en el mismo origen — evita Mixed Content.
-// En desarrollo se usa http://localhost:3003 (puerto del backend local).
+// En desarrollo se usa http://localhost:3002 (puerto del backend local, PORT en .env).
 const BASE_URL = import.meta.env.PROD
   ? (import.meta.env.VITE_API_URL ?? '')
-  : (import.meta.env.VITE_API_URL ?? 'http://localhost:3003');
+  : (import.meta.env.VITE_API_URL ?? 'http://localhost:3002');
 
 /** Error enriquecido con el status HTTP y el body de la respuesta */
 export class ApiError extends Error {
