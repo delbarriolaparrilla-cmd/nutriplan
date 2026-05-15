@@ -41,6 +41,8 @@ interface AgregarModalProps {
     preferencias?: Record<string, boolean>;
   };
   cargando?: boolean;
+  /** Error message from the parent to display inside the modal */
+  errorMsg?: string | null;
   onConfirmar: (params: ConfirmarParams) => Promise<void>;
   onClose: () => void;
 }
@@ -51,6 +53,7 @@ export function AgregarModal({
   receta,
   tipoComida,
   cargando = false,
+  errorMsg,
   onConfirmar,
   onClose,
 }: AgregarModalProps) {
@@ -227,6 +230,13 @@ export function AgregarModal({
                   Cada día tendrá una preparación diferente con los mismos nutrientes (~{receta.calorias} kcal).
                 </>
               )}
+            </div>
+          )}
+
+          {/* Error message */}
+          {errorMsg && (
+            <div className="mb-3 rounded-xl bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-600">
+              ⚠️ {errorMsg}
             </div>
           )}
 

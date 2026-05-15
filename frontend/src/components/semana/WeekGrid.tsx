@@ -15,9 +15,10 @@ const COMIDA_EMOJI: Record<TipoComida, string> = {
 
 interface DraggableCellProps {
   entrada: PlanDiario;
+  onEliminar: (planId: string) => void;
 }
 
-function DraggableCell({ entrada }: DraggableCellProps) {
+function DraggableCell({ entrada, onEliminar }: DraggableCellProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: entrada.id,
     data: { entrada },
@@ -31,21 +32,33 @@ function DraggableCell({ entrada }: DraggableCellProps) {
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      title={entrada.receta?.nombre ?? ''}
-      className={`text-xs px-2 py-1.5 rounded-lg truncate max-w-[80px] mx-auto select-none ${
-        entrada.consumido
-          ? 'bg-green-100 text-green-700'
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      }`}
-    >
-      {entrada.receta
-        ? entrada.receta.nombre.split(' ').slice(0, 2).join(' ')
-        : '—'}
+    <div className="relative group mx-auto" style={{ maxWidth: 80 }}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
+        title={entrada.receta?.nombre ?? ''}
+        className={`text-xs px-2 py-1.5 rounded-lg truncate select-none ${
+          entrada.consumido
+            ? 'bg-green-100 text-green-700'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        {entrada.receta
+          ? entrada.receta.nombre.split(' ').slice(0, 2).join(' ')
+          : '—'}
+      </div>
+      {/* Delete button — outside drag listeners so it doesn't trigger drag */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onEliminar(entrada.id); }}
+        title="Eliminar del plan"
+        aria-label="Eliminar del plan"
+        className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-400 text-white text-[10px] leading-none items-center justify-center hidden group-hover:flex"
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -57,11 +70,13 @@ interface DroppableCellProps {
   tipo: TipoComida;
   entrada: PlanDiario | undefined;
   isToday: boolean;
+  onEliminar: (planId: string) => void;
 }
 
-function DroppableCell({ fecha, tipo, entrada, isToday }: DroppableCellProps) {
+function DroppableCell({ fecha, tipo, entrada, isToday, onEliminar }: DroppableCellProps) {
   const id = `${fecha}__${tipo}`;
-  const { setNodeRef, isOver } = useDroppable({ id, data: { fecha, tipo } });
+  // Pass planIdDest so handleDragEnd can detect occupied cells for swap
+  const { setNodeRef, isOver } = useDroppable({ id, data: { fecha, tipo, planIdDest: entrada?.id } });
 
   return (
     <td
@@ -72,7 +87,7 @@ function DroppableCell({ fecha, tipo, entrada, isToday }: DroppableCellProps) {
       style={{ minWidth: 84 }}
     >
       {entrada ? (
-        <DraggableCell entrada={entrada} />
+        <DraggableCell entrada={entrada} onEliminar={onEliminar} />
       ) : (
         <span
           className={`text-gray-200 text-base leading-none ${isOver ? 'opacity-0' : ''}`}
@@ -89,9 +104,10 @@ function DroppableCell({ fecha, tipo, entrada, isToday }: DroppableCellProps) {
 
 interface WeekGridProps {
   semana: { fecha: string; plan: PlanDiario[] }[];
+  onEliminar: (planId: string) => void;
 }
 
-export function WeekGrid({ semana }: WeekGridProps) {
+export function WeekGrid({ semana, onEliminar }: WeekGridProps) {
   const hoy = new Date().toISOString().split('T')[0];
 
   return (
@@ -133,6 +149,7 @@ export function WeekGrid({ semana }: WeekGridProps) {
                     tipo={tipo}
                     entrada={entrada}
                     isToday={fecha === hoy}
+                    onEliminar={onEliminar}
                   />
                 );
               })}

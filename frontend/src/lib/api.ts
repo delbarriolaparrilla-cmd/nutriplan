@@ -16,6 +16,18 @@ const BASE_URL = import.meta.env.PROD
   ? (import.meta.env.VITE_API_URL ?? '')
   : (import.meta.env.VITE_API_URL ?? 'http://localhost:3003');
 
+/** Error enriquecido con el status HTTP y el body de la respuesta */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly data: Record<string, unknown> = {},
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -23,8 +35,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new ApiError(
+      (body.error as string | undefined) ?? `HTTP ${res.status}`,
+      res.status,
+      body,
+    );
   }
 
   return res.json() as Promise<T>;

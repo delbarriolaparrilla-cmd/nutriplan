@@ -29,6 +29,7 @@ export default function Recetas() {
   const [guardando, setGuardando] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [exitoMsg, setExitoMsg] = useState<string | null>(null);
+  const [errModal, setErrModal] = useState<string | null>(null);
 
   const calorias = {
     desayuno: 400,
@@ -65,18 +66,22 @@ export default function Recetas() {
 
   const handleAbrirModal = () => {
     if (!seleccionada) return;
+    setErrModal(null);
     setModalAbierto(true);
   };
 
   const handleConfirmar = async ({ modo, fechas }: ConfirmarParams) => {
     if (!seleccionada) return;
     setGuardando(true);
+    setErrModal(null);
     try {
       if (modo === 'hoy') {
         // Guardar receta en BD y agregar al plan del día elegido
         const guardada = await guardar(seleccionada, tipoComida);
         await agregarAlPlan({ fecha: fechas[0], tipo_comida: tipoComida, receta_id: guardada.id });
         setExitoMsg('Receta agregada al plan.');
+        setModalAbierto(false);
+        setSeleccionada(null);
       } else if (modo === 'repetir') {
         // Guardar la receta una vez y repetirla en todas las fechas
         const guardada = await guardar(seleccionada, tipoComida);
@@ -88,6 +93,8 @@ export default function Recetas() {
           reemplazar: false,
         });
         setExitoMsg(`Receta agregada a ${insertados} día${insertados !== 1 ? 's' : ''}${omitidos > 0 ? ` (${omitidos} omitido${omitidos !== 1 ? 's' : ''} por conflicto)` : ''}.`);
+        setModalAbierto(false);
+        setSeleccionada(null);
       } else {
         // Variaciones: Claude genera una receta diferente por día — no guardamos la base
         const { insertados, omitidos } = await agregarMultiple({
@@ -106,9 +113,14 @@ export default function Recetas() {
           },
         });
         setExitoMsg(`${insertados} variación${insertados !== 1 ? 'es' : ''} generada${insertados !== 1 ? 's' : ''} y agregada${insertados !== 1 ? 's' : ''}${omitidos > 0 ? ` (${omitidos} omitido${omitidos !== 1 ? 's' : ''} por conflicto)` : ''}.`);
+        setModalAbierto(false);
+        setSeleccionada(null);
       }
-      setModalAbierto(false);
-      setSeleccionada(null);
+    } catch (err: unknown) {
+      const msg =
+        (err as { message?: string })?.message ??
+        'Ocurrió un error. Intenta de nuevo.';
+      setErrModal(msg);
     } finally {
       setGuardando(false);
     }
@@ -249,8 +261,9 @@ export default function Recetas() {
             preferencias: perfil?.preferencias_alimentarias as Record<string, boolean> | undefined,
           }}
           cargando={guardando}
+          errorMsg={errModal}
           onConfirmar={handleConfirmar}
-          onClose={() => setModalAbierto(false)}
+          onClose={() => { setModalAbierto(false); setErrModal(null); }}
         />
       )}
     </div>

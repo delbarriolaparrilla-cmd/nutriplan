@@ -240,7 +240,9 @@ router.post('/mover', async (req: Request, res: Response, next: NextFunction) =>
     }
 
     if (plan_id_destino) {
-      // INTERCAMBIO: origen ↔ destino
+      // INTERCAMBIO: intercambiar receta_id entre las dos entradas.
+      // Mantenemos fecha + tipo_comida de cada fila y solo swapeamos el receta_id,
+      // así NO tocamos la restricción UNIQUE (fecha, tipo_comida).
       const { data: destino, error: destErr } = await supabase
         .from('plan_diario')
         .select('*')
@@ -252,24 +254,44 @@ router.post('/mover', async (req: Request, res: Response, next: NextFunction) =>
         return;
       }
 
-      // Actualizar origen con las coordenadas del destino
-      await supabase.from('plan_diario').update({
-        fecha:       destino.fecha,
-        tipo_comida: destino.tipo_comida,
-      }).eq('id', plan_id_origen);
+      // Swap paralelo de receta_ids — no hay riesgo de colisión UNIQUE
+      const [{ data: origenActualizado, error: e1 }, { data: destinoActualizado, error: e2 }] =
+        await Promise.all([
+          supabase
+            .from('plan_diario')
+            .update({ receta_id: destino.receta_id })
+            .eq('id', plan_id_origen)
+            .select()
+            .single(),
+          supabase
+            .from('plan_diario')
+            .update({ receta_id: origen.receta_id })
+            .eq('id', plan_id_destino)
+            .select()
+            .single(),
+        ]);
 
-      // Actualizar destino con las coordenadas del origen
-      const { data: destinoActualizado } = await supabase.from('plan_diario').update({
-        fecha:       origen.fecha,
-        tipo_comida: origen.tipo_comida,
-      }).eq('id', plan_id_destino).select().single();
-
-      const { data: origenActualizado } = await supabase
-        .from('plan_diario').select('*').eq('id', plan_id_origen).single();
+      if (e1) throw Object.assign(new Error(e1.message), { statusCode: 400 });
+      if (e2) throw Object.assign(new Error(e2.message), { statusCode: 400 });
 
       res.json({ origen: origenActualizado, destino: destinoActualizado });
     } else {
-      // MOVER a celda vacía
+      // MOVER a celda — verificar que el destino esté vacío para no romper UNIQUE
+      const { data: ocupado } = await supabase
+        .from('plan_diario')
+        .select('id')
+        .eq('fecha', fecha_destino)
+        .eq('tipo_comida', tipo_comida_destino)
+        .maybeSingle();
+
+      if (ocupado) {
+        res.status(409).json({
+          error: 'La celda destino ya tiene una receta. Envía plan_id_destino para intercambiar.',
+          plan_id_ocupado: ocupado.id,
+        });
+        return;
+      }
+
       const { data: origenActualizado, error: moveErr } = await supabase
         .from('plan_diario')
         .update({ fecha: fecha_destino, tipo_comida: tipo_comida_destino })

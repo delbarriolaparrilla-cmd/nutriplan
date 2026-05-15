@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { DndContext, DragEndEvent, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Topbar } from '../components/layout/Topbar.js';
 import { WeekGrid } from '../components/semana/WeekGrid.js';
-import { getPlanDia, moverPlan } from '../lib/api.js';
+import { getPlanDia, moverPlan, eliminarDePlan, ApiError } from '../lib/api.js';
 import { PlanDiario, TipoComida } from '../types/index.js';
 
 function getSemana(): string[] {
@@ -80,7 +80,8 @@ export default function Semana() {
       if (!entradaOrigen) return prev;
 
       if (planIdDest) {
-        // INTERCAMBIO
+        // INTERCAMBIO — el backend swapea receta_id; reflejamos lo mismo en estado:
+        // mantenemos fecha/tipo_comida de cada fila, solo intercambiamos receta y receta_id
         let entradaDest: PlanDiario | undefined;
         for (const dia of prev) {
           entradaDest = dia.plan.find((p) => p.id === planIdDest);
@@ -88,19 +89,19 @@ export default function Semana() {
         }
         if (!entradaDest) return prev;
 
-        const origenFecha = entradaOrigen.fecha;
-        const origenTipo = entradaOrigen.tipo_comida;
+        const origenRecetaId = entradaOrigen.receta_id;
+        const origenReceta   = entradaOrigen.receta;
 
         return prev.map((dia) => ({
           ...dia,
           plan: dia.plan.map((p) => {
-            if (p.id === planIdOrigen) return { ...p, fecha: entradaDest!.fecha, tipo_comida: entradaDest!.tipo_comida };
-            if (p.id === planIdDest) return { ...p, fecha: origenFecha, tipo_comida: origenTipo };
+            if (p.id === planIdOrigen) return { ...p, receta_id: entradaDest!.receta_id, receta: entradaDest!.receta };
+            if (p.id === planIdDest)   return { ...p, receta_id: origenRecetaId,          receta: origenReceta };
             return p;
           }),
         }));
       } else {
-        // MOVER
+        // MOVER — la fila origen cambia de fecha/tipo_comida
         return prev.map((dia) => ({
           ...dia,
           plan: dia.plan.map((p) =>
@@ -113,6 +114,21 @@ export default function Semana() {
     });
   };
 
+  // ─── Eliminar entrada del plan ────────────────────────────────
+  const handleEliminar = async (planId: string) => {
+    // Optimistic: quitar del estado de inmediato
+    setSemana((prev) =>
+      prev.map((dia) => ({ ...dia, plan: dia.plan.filter((p) => p.id !== planId) }))
+    );
+    try {
+      await eliminarDePlan(planId);
+      addToast('✓ Receta eliminada del plan');
+    } catch {
+      addToast('Error al eliminar la receta', 'err');
+      cargarSemana(); // revert
+    }
+  };
+
   // ─── DnD: drag end ───────────────────────────────────────────
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -121,24 +137,25 @@ export default function Semana() {
     const planIdOrigen = String(active.id);
     const overId = String(over.id);
 
-    // over.id puede ser:
-    //   "FECHA__TIPO"  → celda vacía (o con entrada)
-    // over.data.current puede tener { fecha, tipo } o { entrada }
-    const overData = over.data.current as { fecha?: string; tipo?: TipoComida; entrada?: PlanDiario } | undefined;
+    // DroppableCell pasa: { fecha, tipo, planIdDest? }
+    // planIdDest está presente cuando la celda ya tiene una entrada → intercambio
+    const overData = over.data.current as {
+      fecha?: string;
+      tipo?: TipoComida;
+      planIdDest?: string;
+    } | undefined;
 
     let fechaDest: string;
     let tipoDest: TipoComida;
     let planIdDest: string | undefined;
 
-    if (overData?.entrada) {
-      // Soltar sobre una tarjeta existente → intercambio
-      planIdDest = overData.entrada.id;
-      fechaDest  = overData.entrada.fecha;
-      tipoDest   = overData.entrada.tipo_comida;
-    } else if (overData?.fecha && overData?.tipo) {
-      // Soltar sobre celda vacía → mover
-      fechaDest = overData.fecha;
-      tipoDest  = overData.tipo;
+    if (overData?.fecha && overData?.tipo) {
+      fechaDest  = overData.fecha;
+      tipoDest   = overData.tipo;
+      // Si la celda destino tiene entrada y es distinta a la que estamos moviendo
+      if (overData.planIdDest && overData.planIdDest !== planIdOrigen) {
+        planIdDest = overData.planIdDest;
+      }
     } else {
       // Fallback: parsear el id "FECHA__TIPO"
       const [f, t] = overId.split('__');
@@ -154,14 +171,35 @@ export default function Semana() {
     if (navigator.vibrate) navigator.vibrate(30);
 
     try {
-      await moverPlan({
+      const result = await moverPlan({
         plan_id_origen: planIdOrigen,
         fecha_destino: fechaDest,
         tipo_comida_destino: tipoDest,
         plan_id_destino: planIdDest,
       });
-      addToast(planIdDest ? '✓ Recetas intercambiadas' : '✓ Receta movida');
-    } catch {
+      addToast(result.destino ? '✓ Recetas intercambiadas' : '✓ Receta movida');
+    } catch (err: unknown) {
+      // El backend devuelve 409 cuando la celda destino está ocupada
+      // y no se envió plan_id_destino. Reintentar como intercambio automáticamente.
+      if (err instanceof ApiError && err.status === 409 && !planIdDest) {
+        const planIdOcupado = err.data.plan_id_ocupado as string | undefined;
+        if (planIdOcupado) {
+          // Actualización optimista para el intercambio
+          moverEnEstado(planIdOrigen, fechaDest, tipoDest, planIdOcupado);
+          try {
+            await moverPlan({
+              plan_id_origen: planIdOrigen,
+              fecha_destino: fechaDest,
+              tipo_comida_destino: tipoDest,
+              plan_id_destino: planIdOcupado,
+            });
+            addToast('✓ Recetas intercambiadas');
+            return;
+          } catch {
+            // Fall through to generic error below
+          }
+        }
+      }
       addToast('Error al mover la receta', 'err');
       // Revertir recargando
       cargarSemana();
@@ -180,7 +218,7 @@ export default function Semana() {
         ) : (
           <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <div className="bg-white rounded-2xl border border-gray-100 p-3 sm:p-4 overflow-x-auto">
-              <WeekGrid semana={semana} />
+              <WeekGrid semana={semana} onEliminar={handleEliminar} />
             </div>
 
             {/* Hint */}
