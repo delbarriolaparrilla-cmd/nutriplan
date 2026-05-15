@@ -101,15 +101,32 @@ export default function Semana() {
           }),
         }));
       } else {
-        // MOVER — la fila origen cambia de fecha/tipo_comida
-        return prev.map((dia) => ({
-          ...dia,
-          plan: dia.plan.map((p) =>
-            p.id === planIdOrigen
-              ? { ...p, fecha: fechaDest, tipo_comida: tipoDest }
-              : p
-          ),
-        }));
+        // MOVER — la entrada se reubica en otro día/tipo_comida.
+        // No basta cambiar los campos: hay que SACAR la entrada del array del día
+        // origen e INSERTARLA en el array del día destino, o el grid no la muestra.
+        const entradaMovida: PlanDiario = { ...entradaOrigen, fecha: fechaDest, tipo_comida: tipoDest };
+        const origenFecha = entradaOrigen.fecha;
+
+        if (origenFecha === fechaDest) {
+          // Mismo día, cambio de tipo de comida (columna diferente)
+          return prev.map((dia) =>
+            dia.fecha === origenFecha
+              ? { ...dia, plan: dia.plan.map((p) => p.id === planIdOrigen ? entradaMovida : p) }
+              : dia
+          );
+        }
+
+        return prev.map((dia) => {
+          if (dia.fecha === origenFecha) {
+            // Quitar del día origen
+            return { ...dia, plan: dia.plan.filter((p) => p.id !== planIdOrigen) };
+          }
+          if (dia.fecha === fechaDest) {
+            // Insertar en el día destino
+            return { ...dia, plan: [...dia.plan, entradaMovida] };
+          }
+          return dia;
+        });
       }
     });
   };
@@ -123,9 +140,10 @@ export default function Semana() {
     try {
       await eliminarDePlan(planId);
       addToast('✓ Receta eliminada del plan');
+      cargarSemana(); // re-fetch para confirmar estado real
     } catch {
       addToast('Error al eliminar la receta', 'err');
-      cargarSemana(); // revert
+      cargarSemana(); // revertir al estado del servidor
     }
   };
 
@@ -178,6 +196,7 @@ export default function Semana() {
         plan_id_destino: planIdDest,
       });
       addToast(result.destino ? '✓ Recetas intercambiadas' : '✓ Receta movida');
+      cargarSemana(); // re-fetch para confirmar estado real del servidor
     } catch (err: unknown) {
       // El backend devuelve 409 cuando la celda destino está ocupada
       // y no se envió plan_id_destino. Reintentar como intercambio automáticamente.
@@ -194,6 +213,7 @@ export default function Semana() {
               plan_id_destino: planIdOcupado,
             });
             addToast('✓ Recetas intercambiadas');
+            cargarSemana();
             return;
           } catch {
             // Fall through to generic error below
@@ -201,8 +221,7 @@ export default function Semana() {
         }
       }
       addToast('Error al mover la receta', 'err');
-      // Revertir recargando
-      cargarSemana();
+      cargarSemana(); // revertir al estado del servidor
     }
   };
 

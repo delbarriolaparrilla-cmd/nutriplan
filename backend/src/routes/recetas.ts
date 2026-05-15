@@ -3,6 +3,7 @@ import { generarRecetas } from '../services/claudeService.js';
 import { supabase } from '../services/supabaseService.js';
 import { extractUser } from '../middleware/adminAuth.js';
 import { GenerarRecetaParams } from '../types/index.js';
+import { pickRecetaColumns } from '../utils/recetaUtils.js';
 
 const router = Router();
 
@@ -27,7 +28,8 @@ router.post('/generar', extractUser, async (req: Request, res: Response, next: N
 // POST /api/recetas/guardar — Guarda una receta en la base de datos
 router.post('/guardar', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const receta = req.body;
+    // Filtrar solo las columnas que existen en la tabla (evita error de columna desconocida)
+    const receta = pickRecetaColumns(req.body as Record<string, unknown>);
 
     const { data, error } = await supabase
       .from('recetas')

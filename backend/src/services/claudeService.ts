@@ -40,6 +40,41 @@ async function registrarUsoTokens(
 }
 
 // ─────────────────────────────────────────────────────────────
+// Extractor robusto de JSON desde la respuesta de Claude
+// Maneja: markdown fences, texto extra antes/después, BOM
+// ─────────────────────────────────────────────────────────────
+
+function extractJSON(raw: string): string {
+  // Quitar BOM y espacios extremos
+  let text = raw.replace(/^﻿/, '').trim();
+
+  // Quitar markdown code fences ```json ... ``` o ``` ... ```
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  // Localizar el objeto JSON más externo (primer { ... último })
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    return text.slice(start, end + 1);
+  }
+  return text; // devolver tal cual y dejar que JSON.parse falle con mensaje claro
+}
+
+function parseClaudeJSON<T>(raw: string, context: string): T {
+  const jsonText = extractJSON(raw);
+  try {
+    return JSON.parse(jsonText) as T;
+  } catch (err) {
+    console.error(`[Claude] Error parseando JSON en "${context}".`);
+    console.error(`[Claude] Raw (primeros 600 chars): ${raw.slice(0, 600)}`);
+    console.error(`[Claude] Extraído: ${jsonText.slice(0, 600)}`);
+    throw new Error(
+      `Claude devolvió una respuesta con formato inválido (${(err as Error).message}). Intenta de nuevo.`
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // System prompt SMAE — nutrición comunitaria mexicana
 // ─────────────────────────────────────────────────────────────
 
@@ -256,15 +291,12 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
     throw new Error('Respuesta inesperada de Claude');
   }
 
-  const text = content.text.trim();
-  const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
-
   // Registrar tokens si tenemos el userId
   if (userId) {
     await registrarUsoTokens(userId, message.usage.input_tokens, message.usage.output_tokens);
   }
 
-  const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
+  const parsed = parseClaudeJSON<{ recetas: RecetaGenerada[] }>(content.text, 'generarRecetas');
   return parsed.recetas;
 }
 
@@ -339,14 +371,12 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
     throw new Error('Respuesta inesperada de Claude');
   }
 
-  const text = content.text.trim();
-  const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
   // Registrar tokens si tenemos el userId
   if (userId) {
     await registrarUsoTokens(userId, message.usage.input_tokens, message.usage.output_tokens);
   }
 
-  const parsed = JSON.parse(jsonText) as { recetas: RecetaGenerada[] };
+  const parsed = parseClaudeJSON<{ recetas: RecetaGenerada[] }>(content.text, 'generarVariaciones');
 
   // Garantizar que devolvemos exactamente numDias recetas
   // (Claude puede devolver más o menos — repetimos o truncamos según sea necesario)
@@ -398,9 +428,6 @@ Responde ÚNICAMENTE con este JSON (sin markdown, sin texto extra):
     throw new Error('Respuesta inesperada de Claude');
   }
 
-  const text = content.text.trim();
-  const jsonText = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
-
-  const parsed = JSON.parse(jsonText) as { grupos: GrupoNutricional[] };
+  const parsed = parseClaudeJSON<{ grupos: GrupoNutricional[] }>(content.text, 'extraerGrupos');
   return parsed.grupos;
 }

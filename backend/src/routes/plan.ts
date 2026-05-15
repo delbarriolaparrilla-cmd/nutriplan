@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { supabase } from '../services/supabaseService.js';
 import { generarVariaciones } from '../services/claudeService.js';
 import { extractUser } from '../middleware/adminAuth.js';
+import { pickRecetaColumns } from '../utils/recetaUtils.js';
 
 const router = Router();
 
@@ -157,10 +158,16 @@ router.post('/agregar-multiple', extractUser, async (req: Request, res: Response
           if (existing) { omitidos++; continue; }
         }
 
-        // Guardar la receta generada
+        // Guardar la receta generada (solo columnas existentes en el schema)
+        const recetaData = pickRecetaColumns({
+          ...(variacion as unknown as Record<string, unknown>),
+          tipo_comida,
+          generada_por_ia: true,
+          veces_usada: 0,
+        });
         const { data: recetaGuardada, error: rErr } = await supabase
           .from('recetas')
-          .insert({ ...variacion, tipo_comida, generada_por_ia: true, veces_usada: 0 })
+          .insert(recetaData)
           .select('id')
           .single();
 
